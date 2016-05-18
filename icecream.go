@@ -4,6 +4,7 @@ import (
 	"github.com/RexGene/common/memorypool"
 	_ "github.com/RexGene/common/objectpool"
 	"github.com/RexGene/common/threadpool"
+	"github.com/RexGene/icecream/manager/databackupmanager"
 	"log"
 	"net"
 )
@@ -31,18 +32,17 @@ func New() (*IceCream, error) {
 
 func (self *IceCream) listen() {
 	for self.isRunning {
-		buffer, _ := memorypool.GetInstance().Alloc(READ_BUFFER_SIZE)
+		buffer := databackupmanager.GetInstance().MakeBuffer(READ_BUFFER_SIZE)
 		readLen, targetAddr, err := self.conn.ReadFromUDP(buffer)
 		if err != nil {
 			log.Fatalln(err)
 		} else {
-			f := func() {
+			task := func() {
 				self.conn.WriteToUDP(buffer[:readLen], targetAddr)
-
-				memorypool.GetInstance().Free(buffer)
+				//memorypool.GetInstance().Free(buffer)
 			}
 
-			threadpool.GetInstance().Start(f)
+			threadpool.GetInstance().Start(task)
 		}
 	}
 }
