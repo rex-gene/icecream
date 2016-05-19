@@ -9,6 +9,20 @@ import (
 var instance *DataBackupManager
 
 const DEFAULT_CAP = 256
+const CONTROL_EVENT_LIST = 1024
+
+const (
+	INSERT = iota
+	REMOVE
+	FIND_AND_REMOVE
+)
+
+type ControlData struct {
+	Token  uint32
+	Seq    uint16
+	Data   []byte
+	Option int
+}
 
 type DataBackupNode struct {
 	Seq  uint16
@@ -16,12 +30,14 @@ type DataBackupNode struct {
 }
 
 type DataBackupManager struct {
-	data map[uint32][]DataBackupNode
+	data             map[uint32][]DataBackupNode
+	controlEventList chan ControlData
 }
 
 func New() *DataBackupManager {
 	return &DataBackupManager{
-		data: make(map[uint32][]DataBackupNode),
+		data:             make(map[uint32][]DataBackupNode),
+		controlEventList: make(chan ControlData, CONTROL_EVENT_LIST),
 	}
 }
 
@@ -110,4 +126,29 @@ func (self *DataBackupManager) FindAndRemove(token uint32, seq uint16) bool {
 
 	self.data[token] = list[index:]
 	return true
+}
+
+func (self *DataBackupManager) SendCmd(token uint32, seq uint16, data []byte, option int) {
+	cmd := ControlData{
+		Token:  token,
+		Seq:    seq,
+		Data:   data,
+		Option: option,
+	}
+
+	self.controlEventList <- cmd
+}
+
+func (self *DataBackupManager) Execute() {
+	for {
+		data := <-self.controlEventList
+		switch data.Option {
+		case INSERT:
+			self.Insert(data.Token, data.Seq, data.Data)
+		case REMOVE:
+			self.Remove(data.Token)
+		case FIND_AND_REMOVE:
+			self.FindAndRemove(data.Token, data.Seq)
+		}
+	}
 }
