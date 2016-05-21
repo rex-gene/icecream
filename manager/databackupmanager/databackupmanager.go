@@ -99,6 +99,10 @@ func (self *DataBackupManager) GetDataList(token uint32) []DataBackupNode {
 	return self.data[token]
 }
 
+func (self *DataBackupManager) GetData() map[uint32][]DataBackupNode {
+	return self.data
+}
+
 func (self *DataBackupManager) FindAndRemove(token uint32, seq uint16) bool {
 	list := self.data[token]
 	if list == nil {

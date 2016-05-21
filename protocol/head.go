@@ -15,4 +15,5 @@ type ICHead struct {
 	DstSeqId uint16
 	Len      uint16
 	Token    uint32
+	CmdId    uint32
 }

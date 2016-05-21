@@ -4,6 +4,8 @@ import (
 	_ "github.com/RexGene/common/objectpool"
 	"github.com/RexGene/common/threadpool"
 	"github.com/RexGene/icecream/manager/databackupmanager"
+	"github.com/RexGene/icecream/manager/datasendmanager"
+	"github.com/RexGene/icecream/net/converter"
 	"github.com/RexGene/icecream/protocol"
 	"log"
 	"net"
@@ -13,7 +15,7 @@ import (
 const (
 	MAX_CONNECT_COUNT = 1024
 	READ_BUFFER_SIZE  = 65535
-	ICHEAD_SIZE       = 12
+	ICHEAD_SIZE       = 16
 )
 
 type IceCream struct {
@@ -60,20 +62,15 @@ func (self *IceCream) checkSum(buffer []byte) *protocol.ICHead {
 
 func (self *IceCream) listen() {
 	for self.isRunning {
-		buffer := databackupmanager.GetInstance().MakeBuffer(READ_BUFFER_SIZE)
+		buffer := converter.MakeBuffer(READ_BUFFER_SIZE)
 		readLen, targetAddr, err := self.conn.ReadFromUDP(buffer)
 		if err == nil {
 			if readLen >= ICHEAD_SIZE {
-				head := self.checkSum(buffer[:readLen])
-				if head != nil {
-					task := func() {
-						self.conn.WriteToUDP(buffer[:readLen], targetAddr)
-					}
-
-					threadpool.GetInstance().Start(task)
-				} else {
-					log.Println("[!]check sum error")
+				task := func() {
+					converter.HandlePacket(targetAddr, buffer)
 				}
+
+				threadpool.GetInstance().Start(task)
 			} else {
 				log.Println("[!]data len too short:", readLen)
 			}
@@ -104,7 +101,12 @@ func (self *IceCream) Start(addr string) error {
 	self.conn = conn
 	self.isRunning = true
 
-	//go self.handleLogic()
+	dataSendManager := datasendmanager.GetInstance()
+	dataSendManager.Init(conn)
+
+	go dataSendManager.Execute()
+	go databackupmanager.GetInstance().Execute()
+
 	self.listen()
 
 	return nil
