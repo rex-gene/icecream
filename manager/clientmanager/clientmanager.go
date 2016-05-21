@@ -28,7 +28,7 @@ func (self *ClientManager) GetClient(token uint32) icinterface.IClient {
 func (self *ClientManager) AddClient(client icinterface.IClient) bool {
 	token, isSuccess := self.MakeToken()
 	if !isSuccess {
-		log.Println("[-]token not empty")
+		log.Println("[-]token is empty")
 		return false
 	}
 

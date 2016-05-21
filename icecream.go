@@ -1,7 +1,6 @@
 package icecream
 
 import (
-	_ "github.com/RexGene/common/objectpool"
 	"github.com/RexGene/common/threadpool"
 	"github.com/RexGene/icecream/manager/databackupmanager"
 	"github.com/RexGene/icecream/manager/datasendmanager"

@@ -16,6 +16,7 @@ import (
 )
 
 const ICHEAD_SIZE = 16
+const SEND_BUFFER_SIZE = 65535
 
 func GetSum(buffer []byte) byte {
 	sumValue := byte(0)
@@ -38,6 +39,23 @@ func SendData(cli icinterface.IClient, buffer []byte, flag byte) {
 	head.Sum = GetSum(buffer)
 
 	cli.SendData(buffer)
+}
+
+func SendMessage(client icinterface.IClient, msg proto.Message) {
+	buffer := databackupmanager.GetInstance().MakeBuffer(SEND_BUFFER_SIZE)
+
+	msgData, err := proto.Marshal(msg)
+	if err != nil {
+		log.Println("[-]protocol marshal error")
+		return
+	}
+
+	ptr := buffer[ICHEAD_SIZE:]
+	for i, v := range msgData {
+		ptr[i] = v
+	}
+
+	SendData(client, buffer[:ICHEAD_SIZE+len(msgData)], protocol.PUSH_FLAG)
 }
 
 func CheckSum(buffer []byte) *protocol.ICHead {
