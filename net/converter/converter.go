@@ -3,11 +3,11 @@ package converter
 import (
 	"github.com/RexGene/common/memorypool"
 	"github.com/RexGene/icecream/icinterface"
-	"github.com/RexGene/icecream/manager/clientmanager"
 	"github.com/RexGene/icecream/manager/databackupmanager"
+	"github.com/RexGene/icecream/manager/datasendmanager"
 	"github.com/RexGene/icecream/manager/handlermanager"
 	"github.com/RexGene/icecream/manager/protocolmanager"
-	"github.com/RexGene/icecream/net/client"
+	"github.com/RexGene/icecream/net/socket"
 	"github.com/RexGene/icecream/protocol"
 	"github.com/golang/protobuf/proto"
 	"log"
@@ -17,6 +17,7 @@ import (
 
 const ICHEAD_SIZE = 16
 const SEND_BUFFER_SIZE = 65535
+const SUM_FIX = 0x8C
 
 func GetSum(buffer []byte) byte {
 	sumValue := byte(0)
@@ -24,12 +25,14 @@ func GetSum(buffer []byte) byte {
 		sumValue ^= v
 	}
 
+	sumValue ^= SUM_FIX
+
 	return sumValue
 }
 
-func SendData(cli icinterface.IClient, buffer []byte, flag byte) {
+func SendData(cli icinterface.ISocket, buffer []byte, flag byte) {
 	head := (*protocol.ICHead)(unsafe.Pointer(&buffer[0]))
-	head.Flag = 0 | protocol.ACK_FLAG | protocol.PUSH_FLAG
+	head.Flag = flag
 	head.SrcSeqId = cli.GetSrcSeq()
 	head.DstSeqId = cli.GetDstSeq()
 	head.Token = 0
@@ -37,12 +40,22 @@ func SendData(cli icinterface.IClient, buffer []byte, flag byte) {
 	head.Sum = 0
 	head.Len = uint16(len(buffer))
 	head.Sum = GetSum(buffer)
+	head.Token = cli.GetToken()
 
-	cli.SendData(buffer)
+	log.Println("[?]send data:", *head)
+
+	isNeedBackup := true
+	if flag == protocol.ACK_FLAG || flag == protocol.RESET_FLAG {
+		isNeedBackup = false
+	}
+
+	cli.SendData(buffer, isNeedBackup)
 }
 
-func SendMessage(client icinterface.IClient, msg proto.Message) {
-	buffer := databackupmanager.GetInstance().MakeBuffer(SEND_BUFFER_SIZE)
+func SendMessage(
+	dataBackupManager *databackupmanager.DataBackupManager,
+	socket icinterface.ISocket, msg proto.Message) {
+	buffer := MakeBuffer(SEND_BUFFER_SIZE)
 
 	msgData, err := proto.Marshal(msg)
 	if err != nil {
@@ -55,7 +68,7 @@ func SendMessage(client icinterface.IClient, msg proto.Message) {
 		ptr[i] = v
 	}
 
-	SendData(client, buffer[:ICHEAD_SIZE+len(msgData)], protocol.PUSH_FLAG)
+	SendData(socket, buffer[:ICHEAD_SIZE+len(msgData)], protocol.PUSH_FLAG)
 }
 
 func CheckSum(buffer []byte) *protocol.ICHead {
@@ -71,13 +84,12 @@ func CheckSum(buffer []byte) *protocol.ICHead {
 		sumValue ^= v
 	}
 
+	sumValue ^= SUM_FIX
+
 	head.Token = token
 
-	if len(buffer) != int(head.Len) {
-		return nil
-	}
-
 	if sum != sumValue {
+		log.Println("[!]check sum invaild: sum", sum, " sumValue:", sumValue)
 		return nil
 	}
 
@@ -89,8 +101,11 @@ func MakeBuffer(size uint) []byte {
 	return buffer
 }
 
-func HandlePacket(addr *net.UDPAddr, buffer []byte) {
-	dataBackupManager := databackupmanager.GetInstance()
+func HandlePacket(
+	sender *datasendmanager.DataSendManager,
+	tokenManager icinterface.ITokenManager,
+	dataBackupManager *databackupmanager.DataBackupManager,
+	addr *net.UDPAddr, buffer []byte, sock *socket.Socket) {
 
 	head := CheckSum(buffer)
 	if head == nil {
@@ -98,38 +113,71 @@ func HandlePacket(addr *net.UDPAddr, buffer []byte) {
 		return
 	}
 
-	if head.Flag&protocol.PUSH_FLAG != 0 {
-		cli := clientmanager.GetInstance().GetClient(head.Token)
-		dstSeq := cli.GetDstSeq()
-		if head.SrcSeqId < dstSeq {
-			buffer := databackupmanager.GetInstance().MakeBuffer(ICHEAD_SIZE)
-			SendData(cli, buffer, protocol.RESET_FLAG)
+	log.Println("[?]flag:", head.Flag)
 
-		} else if head.SrcSeqId == dstSeq {
-			buffer := databackupmanager.GetInstance().MakeBuffer(ICHEAD_SIZE)
-			SendData(cli, buffer, protocol.ACK_FLAG)
+	if head.Flag&protocol.ACK_FLAG != 0 {
+		if head.Flag&protocol.START_FLAG == 0 {
+			log.Println("[?]on ack")
+			token := head.Token
+			dataBackupManager.SendCmd(token, head.DstSeqId, nil, databackupmanager.FIND_AND_REMOVE)
+		} else {
+			log.Println("[?]on start ack")
+			dataBackupManager.SendCmd(0, head.DstSeqId, nil, databackupmanager.FIND_AND_REMOVE)
 
-			cli.IncDstSeq()
+			if sock != nil {
+				sock.Format(head, addr, sender)
+				tokenManager.AddSocketByToken(sock, head.Token)
 
+				buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+				SendData(sock, buffer, protocol.ACK_FLAG)
+			}
 		}
-	} else if head.Flag&protocol.START_FLAG != 0 {
-		cli := client.New()
-		cli.Format(head, addr)
-		clientmanager.GetInstance().AddClient(cli)
+		return
+	}
 
-		buffer := databackupmanager.GetInstance().MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buffer, protocol.ACK_FLAG|protocol.PUSH_FLAG)
-	} else if head.Flag&protocol.RESET_FLAG != 0 {
-		cli := clientmanager.GetInstance().GetClient(head.Token)
+	if head.Flag&protocol.START_FLAG != 0 {
+		log.Println("[?]on start")
+		cli := socket.New()
+		cli.Format(head, addr, sender)
+		tokenManager.AddSocket(cli)
+
+		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+		SendData(cli, buffer, protocol.ACK_FLAG|protocol.START_FLAG)
+		return
+	}
+
+	if head.Flag&protocol.RESET_FLAG != 0 {
+		log.Println("[?]on reset")
+		cli := tokenManager.GetSocket(head.Token)
 		srcSeq := cli.GetSrcSeq()
 		if head.DstSeqId > srcSeq {
 			cli.SetSrcSeq(head.DstSeqId)
 			dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, databackupmanager.FIND_AND_REMOVE)
 		}
+		return
 	}
 
-	if head.Flag&protocol.ACK_FLAG != 0 {
-		dataBackupManager.SendCmd(head.Token, head.DstSeqId, nil, databackupmanager.FIND_AND_REMOVE)
+	if head.Flag&protocol.PUSH_FLAG == 0 {
+		log.Println("[!]data flag is invalid:", head.Flag)
+		return
+	}
+
+	log.Println("[?]on push")
+
+	cli := tokenManager.GetSocket(head.Token)
+	dstSeq := cli.GetDstSeq()
+	if head.SrcSeqId < dstSeq {
+		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+		SendData(cli, buffer, protocol.RESET_FLAG)
+
+	} else if head.SrcSeqId == dstSeq {
+		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+		SendData(cli, buffer, protocol.ACK_FLAG)
+
+		cli.IncDstSeq()
+	} else {
+		log.Println("[!]invalid seqId drop it:", head.SrcSeqId)
+		return
 	}
 
 	cmdId := head.CmdId

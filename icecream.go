@@ -2,13 +2,14 @@ package icecream
 
 import (
 	"github.com/RexGene/common/threadpool"
+	"github.com/RexGene/icecream/manager/connectermanager"
 	"github.com/RexGene/icecream/manager/databackupmanager"
 	"github.com/RexGene/icecream/manager/datasendmanager"
+	"github.com/RexGene/icecream/manager/socketmanager"
+	"github.com/RexGene/icecream/net/connecter"
 	"github.com/RexGene/icecream/net/converter"
-	"github.com/RexGene/icecream/protocol"
 	"log"
 	"net"
-	"unsafe"
 )
 
 const (
@@ -18,9 +19,12 @@ const (
 )
 
 type IceCream struct {
-	udpAddr   *net.UDPAddr
-	conn      *net.UDPConn
-	isRunning bool
+	udpAddr          *net.UDPAddr
+	conn             *net.UDPConn
+	dataSendManager  *datasendmanager.DataSendManager
+	dataBacupManager *databackupmanager.DataBackupManager
+	socketmanager    *socketmanager.SocketManager
+	isRunning        bool
 }
 
 func New() (*IceCream, error) {
@@ -33,30 +37,23 @@ func New() (*IceCream, error) {
 	return iceCream, nil
 }
 
-func (self *IceCream) checkSum(buffer []byte) *protocol.ICHead {
-	head := (*protocol.ICHead)(unsafe.Pointer(&buffer[0]))
-	sum := head.Sum
-	token := head.Token
-
-	head.Sum = 0
-	head.Token = 0
-
-	sumValue := byte(0)
-	for _, v := range buffer {
-		sumValue ^= v
+func (self *IceCream) Connect(serverName string, addr string) (*connecter.Connecter, error) {
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		return nil, err
 	}
 
-	head.Token = token
-
-	if len(buffer) != int(head.Len) {
-		return nil
+	udpConn, err := net.DialUDP("udp", nil, udpAddr)
+	if err != nil {
+		return nil, err
 	}
 
-	if sum != sumValue {
-		return nil
-	}
+	connecter := connecter.New(udpConn, udpAddr)
+	connecter.Start()
 
-	return head
+	connectermanager.GetInstance().Insert(serverName, connecter)
+
+	return connecter, nil
 }
 
 func (self *IceCream) listen() {
@@ -66,7 +63,11 @@ func (self *IceCream) listen() {
 		if err == nil {
 			if readLen >= ICHEAD_SIZE {
 				task := func() {
-					converter.HandlePacket(targetAddr, buffer)
+					converter.HandlePacket(
+						datasendmanager.GetInstance(),
+						socketmanager.GetInstance(),
+						databackupmanager.GetInstance(),
+						targetAddr, buffer, nil)
 				}
 
 				threadpool.GetInstance().Start(task)
@@ -74,7 +75,7 @@ func (self *IceCream) listen() {
 				log.Println("[!]data len too short:", readLen)
 			}
 		} else {
-			log.Fatalln(err)
+			log.Println("[!]", err)
 		}
 	}
 }
@@ -100,17 +101,33 @@ func (self *IceCream) Start(addr string) error {
 	self.conn = conn
 	self.isRunning = true
 
+	dataBacupManager := databackupmanager.GetInstance()
+
 	dataSendManager := datasendmanager.GetInstance()
-	dataSendManager.Init(conn)
+	socketmanager := socketmanager.GetInstance()
+	socketmanager.SetDataBackupManager(dataBacupManager)
+
+	dataSendManager.Init(conn, dataBacupManager, socketmanager)
+
+	self.dataSendManager = dataSendManager
+	self.dataBacupManager = dataBacupManager
+	self.socketmanager = socketmanager
 
 	go dataSendManager.Execute()
-	go databackupmanager.GetInstance().Execute()
-
-	self.listen()
+	go dataBacupManager.Execute()
+	go socketmanager.CheckAndRemoveTimeoutSocket()
+	go self.listen()
 
 	return nil
 }
 
-func (*IceCream) Stop() error {
+func (self *IceCream) Stop() error {
+	self.isRunning = false
+	self.dataSendManager.Stop()
+	self.dataBacupManager.Stop()
+	self.socketmanager.Stop()
+	self.conn.Close()
+
 	return nil
+
 }

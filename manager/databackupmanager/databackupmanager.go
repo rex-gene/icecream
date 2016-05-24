@@ -32,12 +32,14 @@ type DataBackupNode struct {
 type DataBackupManager struct {
 	data             map[uint32][]DataBackupNode
 	controlEventList chan ControlData
+	exitEvent        chan bool
 }
 
 func New() *DataBackupManager {
 	return &DataBackupManager{
 		data:             make(map[uint32][]DataBackupNode),
 		controlEventList: make(chan ControlData, CONTROL_EVENT_LIST),
+		exitEvent:        make(chan bool, 1),
 	}
 }
 
@@ -58,7 +60,7 @@ func (self *DataBackupManager) FreeBuffer(buffer []byte) {
 	memorypool.GetInstance().Free(buffer)
 }
 
-func (self *DataBackupManager) Insert(token uint32, seq uint16, inputData []byte) {
+func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte) {
 	list := self.data[token]
 	if list == nil {
 		list = make([]DataBackupNode, 0, DEFAULT_CAP)
@@ -72,7 +74,7 @@ func (self *DataBackupManager) Insert(token uint32, seq uint16, inputData []byte
 	self.data[token] = append(list, databackNode)
 }
 
-func (self *DataBackupManager) Clear() {
+func (self *DataBackupManager) clear() {
 	for k, list := range self.data {
 		for _, v := range list {
 			self.FreeBuffer(v.Data)
@@ -81,7 +83,7 @@ func (self *DataBackupManager) Clear() {
 	}
 }
 
-func (self *DataBackupManager) Remove(token uint32) error {
+func (self *DataBackupManager) remove(token uint32) error {
 	list := self.data[token]
 	if list == nil {
 		return errors.New("token not found:" + string(token))
@@ -103,15 +105,15 @@ func (self *DataBackupManager) GetData() map[uint32][]DataBackupNode {
 	return self.data
 }
 
-func (self *DataBackupManager) FindAndRemove(token uint32, seq uint16) bool {
+func (self *DataBackupManager) findAndRemove(token uint32, seq uint16) bool {
 	list := self.data[token]
 	if list == nil {
-		log.Println("[!]token:", token, " seq:", seq, " drop!")
+		log.Println("[!]token:", token, " seq:", seq, " drop!", self.data)
 		return false
 	}
 
 	if len(list) == 0 {
-		log.Println("[!]token:", token, " seq:", seq, " drop!")
+		log.Println("[!]list is empty token:", token, " seq:", seq, " drop!")
 		return false
 	}
 
@@ -119,6 +121,7 @@ func (self *DataBackupManager) FindAndRemove(token uint32, seq uint16) bool {
 	for _, v := range list {
 		index++
 		if seq == v.Seq {
+			log.Println("[?]found seq")
 			break
 		}
 	}
@@ -143,16 +146,28 @@ func (self *DataBackupManager) SendCmd(token uint32, seq uint16, data []byte, op
 	self.controlEventList <- cmd
 }
 
+func (self *DataBackupManager) Stop() {
+	self.exitEvent <- true
+}
+
 func (self *DataBackupManager) Execute() {
 	for {
-		data := <-self.controlEventList
-		switch data.Option {
-		case INSERT:
-			self.Insert(data.Token, data.Seq, data.Data)
-		case REMOVE:
-			self.Remove(data.Token)
-		case FIND_AND_REMOVE:
-			self.FindAndRemove(data.Token, data.Seq)
+		select {
+		case data := <-self.controlEventList:
+			switch data.Option {
+			case INSERT:
+				log.Println("[?]DataBackup insert token:", data.Token, " seq:", data.Seq)
+				self.insert(data.Token, data.Seq, data.Data)
+			case REMOVE:
+				log.Println("[?]DataBackup remove", " token:", data.Token)
+				self.remove(data.Token)
+			case FIND_AND_REMOVE:
+				log.Println("[?]DataBackup findAndRemove", " token:", data.Token, " seq:", data.Seq)
+				self.findAndRemove(data.Token, data.Seq)
+			}
+		case <-self.exitEvent:
+			self.clear()
+			return
 		}
 	}
 }
