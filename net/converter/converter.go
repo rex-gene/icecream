@@ -53,7 +53,6 @@ func SendData(cli icinterface.ISocket, buffer []byte, flag byte) {
 }
 
 func SendMessage(
-	dataBackupManager *databackupmanager.DataBackupManager,
 	socket icinterface.ISocket, msg proto.Message) {
 	buffer := MakeBuffer(SEND_BUFFER_SIZE)
 
@@ -187,7 +186,7 @@ func HandlePacket(
 			proto.Unmarshal(buffer[ICHEAD_SIZE:], msg)
 		}
 
-		handlermanager.GetInstance().HandleMessage(cmdId, msg)
+		handlermanager.GetInstance().HandleMessage(cmdId, cli, msg)
 	}
 
 	memorypool.GetInstance().Free(buffer)

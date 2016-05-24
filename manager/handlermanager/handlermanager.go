@@ -1,18 +1,19 @@
 package handlermanager
 
 import (
+	"github.com/RexGene/icecream/icinterface"
 	"github.com/golang/protobuf/proto"
 )
 
 type HandlerManager struct {
-	handlerMap map[uint32]func(proto.Message)
+	handlerMap map[uint32]func(icinterface.ISocket, proto.Message)
 }
 
 var instance *HandlerManager
 
 func New() *HandlerManager {
 	return &HandlerManager{
-		handlerMap: make(map[uint32]func(proto.Message)),
+		handlerMap: make(map[uint32]func(icinterface.ISocket, proto.Message)),
 	}
 }
 
@@ -24,13 +25,13 @@ func GetInstance() *HandlerManager {
 	return instance
 }
 
-func (self *HandlerManager) RegistProtocol(id uint32, handleFunc func(proto.Message)) {
+func (self *HandlerManager) RegistHandler(id uint32, handleFunc func(icinterface.ISocket, proto.Message)) {
 	self.handlerMap[id] = handleFunc
 }
 
-func (self *HandlerManager) HandleMessage(id uint32, msg proto.Message) {
+func (self *HandlerManager) HandleMessage(id uint32, socket icinterface.ISocket, msg proto.Message) {
 	handleFunc := self.handlerMap[id]
 	if handleFunc != nil {
-		handleFunc(msg)
+		handleFunc(socket, msg)
 	}
 }

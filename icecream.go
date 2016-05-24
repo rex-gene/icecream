@@ -2,12 +2,16 @@ package icecream
 
 import (
 	"github.com/RexGene/common/threadpool"
+	"github.com/RexGene/icecream/icinterface"
 	"github.com/RexGene/icecream/manager/connectermanager"
 	"github.com/RexGene/icecream/manager/databackupmanager"
 	"github.com/RexGene/icecream/manager/datasendmanager"
+	"github.com/RexGene/icecream/manager/handlermanager"
+	"github.com/RexGene/icecream/manager/protocolmanager"
 	"github.com/RexGene/icecream/manager/socketmanager"
 	"github.com/RexGene/icecream/net/connecter"
 	"github.com/RexGene/icecream/net/converter"
+	"github.com/golang/protobuf/proto"
 	"log"
 	"net"
 )
@@ -24,6 +28,8 @@ type IceCream struct {
 	dataSendManager  *datasendmanager.DataSendManager
 	dataBacupManager *databackupmanager.DataBackupManager
 	socketmanager    *socketmanager.SocketManager
+	protocolManager  *protocolmanager.ProtocolManager
+	handlerManager   *handlermanager.HandlerManager
 	isRunning        bool
 }
 
@@ -35,6 +41,18 @@ func New() (*IceCream, error) {
 	iceCream.init()
 
 	return iceCream, nil
+}
+
+func (self *IceCream) SendMessage(socket icinterface.ISocket, msg proto.Message) {
+	converter.SendMessage(socket, msg)
+}
+
+func (self *IceCream) RegistProtocol(id uint32, makeFunc func() proto.Message) {
+	self.protocolManager.RegistProtocol(id, makeFunc)
+}
+
+func (self *IceCream) RegistHandler(id uint32, handleFunc func(icinterface.ISocket, proto.Message)) {
+	self.handlerManager.RegistHandler(id, handleFunc)
 }
 
 func (self *IceCream) Connect(serverName string, addr string) (*connecter.Connecter, error) {
@@ -112,6 +130,8 @@ func (self *IceCream) Start(addr string) error {
 	self.dataSendManager = dataSendManager
 	self.dataBacupManager = dataBacupManager
 	self.socketmanager = socketmanager
+	self.protocolManager = protocolmanager.GetInstance()
+	self.handlerManager = handlermanager.GetInstance()
 
 	go dataSendManager.Execute()
 	go dataBacupManager.Execute()

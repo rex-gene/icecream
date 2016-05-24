@@ -8,6 +8,7 @@ import (
 	"github.com/RexGene/icecream/net/converter"
 	"github.com/RexGene/icecream/net/socket"
 	"github.com/RexGene/icecream/protocol"
+	"github.com/golang/protobuf/proto"
 	"log"
 	"net"
 )
@@ -25,6 +26,10 @@ type Connecter struct {
 	dataSendManager   *datasendmanager.DataSendManager
 	dataBackupManager *databackupmanager.DataBackupManager
 	socketmanager     *socketmanager.SocketManager
+}
+
+func (self *Connecter) SendMessage(msg proto.Message) {
+	converter.SendMessage(self.socket, msg)
 }
 
 func New(conn *net.UDPConn, addr *net.UDPAddr) *Connecter {

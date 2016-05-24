@@ -12,6 +12,7 @@ const CMD_BUFFER_SIZE = 1024
 
 const (
 	SEND_DATA = iota
+	SEND_DATA_AND_FREE
 )
 
 type CmdData struct {
@@ -102,6 +103,9 @@ func (self *DataSendManager) Execute() {
 			socket := cmd.Socket
 			if socket != nil {
 				conn.WriteToUDP(cmd.Data, socket.GetAddr())
+				if cmd.Option == SEND_DATA_AND_FREE {
+					self.dataBackupManager.FreeBuffer(cmd.Data)
+				}
 			}
 		case <-self.exitEvent:
 			return
@@ -132,9 +136,11 @@ func (self *DataSendManager) SendCmd(socket icinterface.ISocket, data []byte, op
 }
 
 func (self *DataSendManager) SendData(socket icinterface.ISocket, data []byte, isNeedBackup bool) {
-	self.SendCmd(socket, data, SEND_DATA)
 	if isNeedBackup {
+		self.SendCmd(socket, data, SEND_DATA)
 		self.dataBackupManager.SendCmd(socket.GetToken(), socket.GetSrcSeq(), data, databackupmanager.INSERT)
 		socket.IncSrcSeq()
+	} else {
+		self.SendCmd(socket, data, SEND_DATA_AND_FREE)
 	}
 }
