@@ -30,16 +30,16 @@ func GetSum(buffer []byte) byte {
 	return sumValue
 }
 
-func SendData(cli icinterface.ISocket, buffer []byte, flag byte) {
+func SendData(cli icinterface.ISocket, buffer []byte, flag byte, cmdId int) {
 	head := (*protocol.ICHead)(unsafe.Pointer(&buffer[0]))
 	head.Flag = flag
 	head.SrcSeqId = cli.GetSrcSeq()
 	head.DstSeqId = cli.GetDstSeq()
 	head.Token = 0
-	head.CmdId = 0
+	head.CmdId = uint32(cmdId)
 	head.Sum = 0
 	head.Len = uint16(len(buffer))
-	head.Sum = GetSum(buffer)
+	head.Sum = GetSum(buffer[:head.Len])
 	head.Token = cli.GetToken()
 
 	log.Println("[?]send data:", *head)
@@ -53,7 +53,7 @@ func SendData(cli icinterface.ISocket, buffer []byte, flag byte) {
 }
 
 func SendMessage(
-	socket icinterface.ISocket, msg proto.Message) {
+	socket icinterface.ISocket, id int, msg proto.Message) {
 	buffer := MakeBuffer(SEND_BUFFER_SIZE)
 
 	msgData, err := proto.Marshal(msg)
@@ -67,7 +67,7 @@ func SendMessage(
 		ptr[i] = v
 	}
 
-	SendData(socket, buffer[:ICHEAD_SIZE+len(msgData)], protocol.PUSH_FLAG)
+	SendData(socket, buffer[:ICHEAD_SIZE+len(msgData)], protocol.PUSH_FLAG, id)
 }
 
 func CheckSum(buffer []byte) *protocol.ICHead {
@@ -78,8 +78,9 @@ func CheckSum(buffer []byte) *protocol.ICHead {
 	head.Sum = 0
 	head.Token = 0
 
+	buf := buffer[:head.Len]
 	sumValue := byte(0)
-	for _, v := range buffer {
+	for _, v := range buf {
 		sumValue ^= v
 	}
 
@@ -106,7 +107,7 @@ func SendStop(head *protocol.ICHead, sender *datasendmanager.DataSendManager,
 	cli.Format(head, addr, sender)
 
 	buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-	SendData(cli, buffer, protocol.STOP_FLAG)
+	SendData(cli, buffer, protocol.STOP_FLAG, 0)
 }
 
 func HandlePacket(
@@ -117,7 +118,6 @@ func HandlePacket(
 
 	head := CheckSum(buffer)
 	if head == nil {
-		log.Println("[!]check sum invaild")
 		return
 	}
 
@@ -137,7 +137,7 @@ func HandlePacket(
 				tokenManager.AddSocketByToken(sock, head.Token)
 
 				buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-				SendData(sock, buffer, protocol.ACK_FLAG)
+				SendData(sock, buffer, protocol.ACK_FLAG, 0)
 				sock.IncDstSeq()
 				sock.IncSrcSeq()
 			}
@@ -152,7 +152,7 @@ func HandlePacket(
 		tokenManager.AddSocket(cli)
 
 		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buffer, protocol.ACK_FLAG|protocol.START_FLAG)
+		SendData(cli, buffer, protocol.ACK_FLAG|protocol.START_FLAG, 0)
 		cli.IncDstSeq()
 		cli.IncSrcSeq()
 		return
@@ -190,11 +190,11 @@ func HandlePacket(
 	if head.SrcSeqId < dstSeq {
 		log.Println("[!]srcSeqId < dstSeq:", head.SrcSeqId, dstSeq)
 		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buffer, protocol.RESET_FLAG)
+		SendData(cli, buffer, protocol.RESET_FLAG, 0)
 
 	} else if head.SrcSeqId == dstSeq {
 		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buffer, protocol.ACK_FLAG)
+		SendData(cli, buffer, protocol.ACK_FLAG, 0)
 
 		cli.IncDstSeq()
 	} else {
@@ -203,13 +203,16 @@ func HandlePacket(
 	}
 
 	cmdId := head.CmdId
+	log.Println("cmd:", cmdId)
 	if cmdId != 0 {
 		msg := protocolmanager.GetInstance().GetProtocol(cmdId)
 		if msg != nil {
 			proto.Unmarshal(buffer[ICHEAD_SIZE:], msg)
+			handlermanager.GetInstance().HandleMessage(cmdId, cli, msg)
+		} else {
+			log.Println("[!]protocol not found")
 		}
 
-		handlermanager.GetInstance().HandleMessage(cmdId, cli, msg)
 	}
 
 	memorypool.GetInstance().Free(buffer)

@@ -28,8 +28,8 @@ type Connecter struct {
 	socketmanager     *socketmanager.SocketManager
 }
 
-func (self *Connecter) SendMessage(msg proto.Message) {
-	converter.SendMessage(self.socket, msg)
+func (self *Connecter) SendMessage(id int, msg proto.Message) {
+	converter.SendMessage(self.socket, id, msg)
 }
 
 func New(conn *net.UDPConn, addr *net.UDPAddr) *Connecter {
@@ -77,7 +77,7 @@ func (self *Connecter) listen() {
 
 func (self *Connecter) connect() {
 	buffer := self.dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-	converter.SendData(self.socket, buffer, protocol.START_FLAG)
+	converter.SendData(self.socket, buffer, protocol.START_FLAG, 0)
 }
 
 func (self *Connecter) Start() {

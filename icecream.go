@@ -43,8 +43,8 @@ func New() (*IceCream, error) {
 	return iceCream, nil
 }
 
-func (self *IceCream) SendMessage(socket icinterface.ISocket, msg proto.Message) {
-	converter.SendMessage(socket, msg)
+func (self *IceCream) SendMessage(socket icinterface.ISocket, id int, msg proto.Message) {
+	converter.SendMessage(socket, id, msg)
 }
 
 func (self *IceCream) RegistProtocol(id uint32, makeFunc func() proto.Message) {
