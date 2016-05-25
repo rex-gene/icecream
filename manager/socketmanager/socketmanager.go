@@ -70,7 +70,7 @@ func (self *SocketManager) GetSocket(token uint32) icinterface.ISocket {
 	self.RLock()
 	defer self.RUnlock()
 
-	log.Println("get socket:", self.dataMap)
+	log.Println("[?]get socket:", self.dataMap)
 	socket, _ := self.dataMap[token]
 	return socket
 }

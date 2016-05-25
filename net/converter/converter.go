@@ -45,7 +45,7 @@ func SendData(cli icinterface.ISocket, buffer []byte, flag byte) {
 	log.Println("[?]send data:", *head)
 
 	isNeedBackup := true
-	if flag == protocol.ACK_FLAG || flag == protocol.RESET_FLAG {
+	if flag == protocol.ACK_FLAG || flag == protocol.RESET_FLAG || flag == protocol.STOP_FLAG {
 		isNeedBackup = false
 	}
 
@@ -100,6 +100,15 @@ func MakeBuffer(size uint) []byte {
 	return buffer
 }
 
+func SendStop(head *protocol.ICHead, sender *datasendmanager.DataSendManager,
+	dataBackupManager *databackupmanager.DataBackupManager, addr *net.UDPAddr) {
+	cli := socket.New()
+	cli.Format(head, addr, sender)
+
+	buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+	SendData(cli, buffer, protocol.STOP_FLAG)
+}
+
 func HandlePacket(
 	sender *datasendmanager.DataSendManager,
 	tokenManager icinterface.ITokenManager,
@@ -129,6 +138,8 @@ func HandlePacket(
 
 				buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 				SendData(sock, buffer, protocol.ACK_FLAG)
+				sock.IncDstSeq()
+				sock.IncSrcSeq()
 			}
 		}
 		return
@@ -142,16 +153,22 @@ func HandlePacket(
 
 		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 		SendData(cli, buffer, protocol.ACK_FLAG|protocol.START_FLAG)
+		cli.IncDstSeq()
+		cli.IncSrcSeq()
 		return
 	}
 
 	if head.Flag&protocol.RESET_FLAG != 0 {
 		log.Println("[?]on reset")
 		cli := tokenManager.GetSocket(head.Token)
-		srcSeq := cli.GetSrcSeq()
-		if head.DstSeqId > srcSeq {
-			cli.SetSrcSeq(head.DstSeqId)
-			dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, databackupmanager.FIND_AND_REMOVE)
+		if cli == nil {
+			SendStop(head, sender, dataBackupManager, addr)
+		} else {
+			srcSeq := cli.GetSrcSeq()
+			if head.DstSeqId > srcSeq {
+				cli.SetSrcSeq(head.DstSeqId)
+				dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, databackupmanager.FIND_AND_REMOVE)
+			}
 		}
 		return
 	}
@@ -164,8 +181,14 @@ func HandlePacket(
 	log.Println("[?]on push")
 
 	cli := tokenManager.GetSocket(head.Token)
+	if cli == nil {
+		SendStop(head, sender, dataBackupManager, addr)
+		return
+	}
+
 	dstSeq := cli.GetDstSeq()
 	if head.SrcSeqId < dstSeq {
+		log.Println("[!]srcSeqId < dstSeq:", head.SrcSeqId, dstSeq)
 		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 		SendData(cli, buffer, protocol.RESET_FLAG)
 
