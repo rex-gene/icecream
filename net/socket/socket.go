@@ -31,8 +31,6 @@ func (self *Socket) Format(head *protocol.ICHead, addr *net.UDPAddr,
 	sender *datasendmanager.DataSendManager) {
 	self.Token = head.Token
 	self.Addr = addr
-	self.SrcSeq = 0
-	self.DstSeq = head.SrcSeqId
 	self.sender = sender
 }
 

@@ -139,7 +139,6 @@ func HandlePacket(
 				buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 				SendData(sock, buffer, protocol.ACK_FLAG, 0)
 				sock.IncDstSeq()
-				sock.IncSrcSeq()
 			}
 		}
 		return
@@ -154,7 +153,6 @@ func HandlePacket(
 		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 		SendData(cli, buffer, protocol.ACK_FLAG|protocol.START_FLAG, 0)
 		cli.IncDstSeq()
-		cli.IncSrcSeq()
 		return
 	}
 

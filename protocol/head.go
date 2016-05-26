@@ -11,9 +11,9 @@ const (
 type ICHead struct {
 	Flag     byte
 	Sum      byte
+	Len      uint16
 	SrcSeqId uint16
 	DstSeqId uint16
-	Len      uint16
 	Token    uint32
 	CmdId    uint32
 }
