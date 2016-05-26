@@ -13,17 +13,17 @@ protocol_config = None
 init_output = None
 ext = ""
 
-def Usage() :
+def usage() :
     print sys.argv[0] + " <options>"
     print "version:1.0"
     print "option:"
-    print "\t--handler_tmp_file=<handler template file name>"
-    print "\t--protocol_tmp_file=<protocol template file name>"
-    print "\t--init_tmp_file=<init template file path>"
-    print "\t--handler_output=<handler output dir path>"
-    print "\t--protocol_output=<protocol output dir path>"
-    print "\t--protocol_config=<protocol config file path>"
-    print "\t--init_output=<init output dir>"
+    print "\t--handler-template=<handler template file name>"
+    print "\t--protocol-template=<protocol template file name>"
+    print "\t--init-template=<init template file path>"
+    print "\t--handler-output=<handler output dir path>"
+    print "\t--protocol-output=<protocol output dir path>"
+    print "\t--protocol-config=<protocol config file path>"
+    print "\t--init-output=<init output dir>"
     print "\t--help print usage"
 
 def makeFile(id, name, readFilePath, writeFilePath):
@@ -44,9 +44,13 @@ def makeFile(id, name, readFilePath, writeFilePath):
     
 
 def makeFiles():
-    getLoopZoneRegex = re.compile("\{#begin\}(.*)\{#end\}")
+    getLoopZoneRegex = re.compile("\{#begin\}([\s\S]*)\{#end\}", re.M)
 
+    initTempFile = open(init_tmp_file)
     config = open(protocol_config)
+
+    initInfo = initTempFile.read()
+    initResult = ""
     for data in config.readlines():
         feilds=data.split(',')
         if len(feilds) != 2 :
@@ -55,10 +59,22 @@ def makeFiles():
         id=feilds[0].strip()
         name=feilds[1].strip()
 
-        makeFile(id, namem handler_tmp_file, handler_output)
-        makeFile(id, namem protocol_tmp_file, protocol_output)
+        makeFile(id, name, handler_tmp_file, handler_output)
+        makeFile(id, name, protocol_tmp_file, protocol_output)
+
+        result = getLoopZoneRegex.findall(initInfo)
+        if len(result) != 0:
+            info = result[0]
+            info = info.replace("{@name}", name)
+            info = info.replace("{@id}", id)
+
+            initResult = initResult + info
+        
+        print getLoopZoneRegex.sub(initResult, initInfo)
+        
 
     config.close()
+    initTempFile.close()
 
 
 for key, value in opts:
@@ -77,7 +93,7 @@ for key, value in opts:
     elif key == "--init-output":
         init_output = value
     elif key == "--help":
-        Usage()
+        usage()
         sys.exit()
 
 makeFiles()
