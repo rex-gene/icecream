@@ -85,6 +85,7 @@ func (self *IceCream) listen() {
 						datasendmanager.GetInstance(),
 						socketmanager.GetInstance(),
 						databackupmanager.GetInstance(),
+						handlermanager.GetInstance(),
 						targetAddr, buffer, nil)
 				}
 
@@ -99,9 +100,6 @@ func (self *IceCream) listen() {
 }
 
 func (self *IceCream) init() {
-}
-
-func (self *IceCream) handleLogic() {
 }
 
 func (self *IceCream) Start(addr string) error {
@@ -135,6 +133,7 @@ func (self *IceCream) Start(addr string) error {
 
 	go dataSendManager.Execute()
 	go dataBacupManager.Execute()
+	go self.handlerManager.Execute()
 	go socketmanager.CheckAndRemoveTimeoutSocket()
 	go self.listen()
 
@@ -146,6 +145,7 @@ func (self *IceCream) Stop() error {
 	self.dataSendManager.Stop()
 	self.dataBacupManager.Stop()
 	self.socketmanager.Stop()
+	self.handlerManager.Stop()
 	self.conn.Close()
 
 	return nil

@@ -114,6 +114,7 @@ func HandlePacket(
 	sender *datasendmanager.DataSendManager,
 	tokenManager icinterface.ITokenManager,
 	dataBackupManager *databackupmanager.DataBackupManager,
+	handlerManager *handlermanager.HandlerManager,
 	addr *net.UDPAddr, buffer []byte, sock *socket.Socket) {
 
 	head := CheckSum(buffer)
@@ -206,7 +207,7 @@ func HandlePacket(
 		msg := protocolmanager.GetInstance().GetProtocol(cmdId)
 		if msg != nil {
 			proto.Unmarshal(buffer[ICHEAD_SIZE:], msg)
-			handlermanager.GetInstance().HandleMessage(cmdId, cli, msg)
+			handlerManager.PushMessage(cmdId, cli, msg)
 		} else {
 			log.Println("[!]protocol not found")
 		}

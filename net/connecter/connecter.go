@@ -4,6 +4,7 @@ import (
 	"github.com/RexGene/common/threadpool"
 	"github.com/RexGene/icecream/manager/databackupmanager"
 	"github.com/RexGene/icecream/manager/datasendmanager"
+	"github.com/RexGene/icecream/manager/handlermanager"
 	"github.com/RexGene/icecream/manager/socketmanager"
 	"github.com/RexGene/icecream/net/converter"
 	"github.com/RexGene/icecream/net/socket"
@@ -26,6 +27,7 @@ type Connecter struct {
 	dataSendManager   *datasendmanager.DataSendManager
 	dataBackupManager *databackupmanager.DataBackupManager
 	socketmanager     *socketmanager.SocketManager
+	handlerManager    *handlermanager.HandlerManager
 }
 
 func (self *Connecter) SendMessage(id int, msg proto.Message) {
@@ -36,6 +38,7 @@ func New(conn *net.UDPConn, addr *net.UDPAddr) *Connecter {
 	dataBackupManager := databackupmanager.New()
 	dataSendManager := datasendmanager.New()
 	socketmanager := socketmanager.New()
+	handlerManager := handlermanager.New()
 	socketmanager.SetDataBackupManager(dataBackupManager)
 	dataSendManager.Init(conn, dataBackupManager, socketmanager)
 
@@ -47,6 +50,7 @@ func New(conn *net.UDPConn, addr *net.UDPAddr) *Connecter {
 		dataSendManager:   dataSendManager,
 		conn:              conn,
 		socketmanager:     socketmanager,
+		handlerManager:    handlerManager,
 		dataBackupManager: dataBackupManager,
 	}
 }
@@ -62,6 +66,7 @@ func (self *Connecter) listen() {
 						self.dataSendManager,
 						self.socketmanager,
 						self.dataBackupManager,
+						self.handlerManager,
 						targetAddr, buffer, self.socket)
 				}
 
@@ -83,6 +88,7 @@ func (self *Connecter) connect() {
 func (self *Connecter) Start() {
 	go self.dataSendManager.ExecuteForSocket(self.socket)
 	go self.dataBackupManager.Execute()
+	go self.handlerManager.Execute()
 	go self.listen()
 
 	self.isRunning = true
@@ -92,6 +98,7 @@ func (self *Connecter) Start() {
 func (self *Connecter) Stop() {
 	self.dataSendManager.Stop()
 	self.dataBackupManager.Stop()
+	self.handlerManager.Stop()
 	self.isRunning = false
 }
 
