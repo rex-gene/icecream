@@ -2,6 +2,7 @@ package connecter
 
 import (
 	"github.com/RexGene/common/threadpool"
+	"github.com/RexGene/icecream/icinterface"
 	"github.com/RexGene/icecream/manager/databackupmanager"
 	"github.com/RexGene/icecream/manager/datasendmanager"
 	"github.com/RexGene/icecream/manager/handlermanager"
@@ -105,4 +106,8 @@ func (self *Connecter) Stop() {
 func (self *Connecter) Close() {
 	self.Stop()
 	self.conn.Close()
+}
+
+func (self *Connecter) RegistHandler(id uint32, handleFunc func(icinterface.ISocket, proto.Message)) {
+	self.handlerManager.RegistHandler(id, handleFunc)
 }
