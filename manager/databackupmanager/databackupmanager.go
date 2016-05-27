@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/RexGene/common/memorypool"
 	"log"
+	"sync"
 )
 
 var instance *DataBackupManager
@@ -29,15 +30,20 @@ type DataBackupNode struct {
 	Data []byte
 }
 
+type DataNode struct {
+	sync.RWMutex
+	Nodes []DataBackupNode
+}
+
 type DataBackupManager struct {
-	data             map[uint32][]DataBackupNode
+	data             map[uint32]*DataNode
 	controlEventList chan ControlData
 	exitEvent        chan bool
 }
 
 func New() *DataBackupManager {
 	return &DataBackupManager{
-		data:             make(map[uint32][]DataBackupNode),
+		data:             make(map[uint32]*DataNode),
 		controlEventList: make(chan ControlData, CONTROL_EVENT_LIST),
 		exitEvent:        make(chan bool, 1),
 	}
@@ -61,33 +67,49 @@ func (self *DataBackupManager) FreeBuffer(buffer []byte) {
 }
 
 func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte) {
-	list := self.data[token]
-	if list == nil {
-		list = make([]DataBackupNode, 0, DEFAULT_CAP)
+	node := self.data[token]
+	if node == nil {
+		node = new(DataNode)
+		node.Nodes = make([]DataBackupNode, 0, DEFAULT_CAP)
+		self.data[token] = node
 	}
+
+	node.Lock()
+	defer node.Unlock()
 
 	databackNode := DataBackupNode{
 		Seq:  seq,
 		Data: inputData,
 	}
 
-	self.data[token] = append(list, databackNode)
+	node.Nodes = append(node.Nodes, databackNode)
 }
 
 func (self *DataBackupManager) clear() {
-	for k, list := range self.data {
+	for k, node := range self.data {
+		node.Lock()
+		defer node.Unlock()
+
+		list := node.Nodes
+
 		for _, v := range list {
 			self.FreeBuffer(v.Data)
 		}
+
 		delete(self.data, k)
 	}
 }
 
 func (self *DataBackupManager) remove(token uint32) error {
-	list := self.data[token]
-	if list == nil {
+	node := self.data[token]
+	if node == nil {
 		return errors.New("token not found:" + string(token))
 	}
+
+	node.Lock()
+	defer node.Unlock()
+
+	list := node.Nodes
 
 	for _, v := range list {
 		self.FreeBuffer(v.Data)
@@ -97,20 +119,26 @@ func (self *DataBackupManager) remove(token uint32) error {
 	return nil
 }
 
-func (self *DataBackupManager) GetDataList(token uint32) []DataBackupNode {
+func (self *DataBackupManager) GetDataList(token uint32) *DataNode {
 	return self.data[token]
 }
 
-func (self *DataBackupManager) GetData() map[uint32][]DataBackupNode {
+func (self *DataBackupManager) GetData() map[uint32]*DataNode {
 	return self.data
 }
 
 func (self *DataBackupManager) findAndRemove(token uint32, seq uint16) bool {
-	list := self.data[token]
-	if list == nil {
+	log.Println("[?]in")
+	node := self.data[token]
+	if node == nil {
 		log.Println("[!]token:", token, " seq:", seq, " drop!", self.data)
 		return false
 	}
+
+	node.Lock()
+	defer node.Unlock()
+
+	list := node.Nodes
 
 	if len(list) == 0 {
 		log.Println("[!]list is empty token:", token, " seq:", seq, " drop!")
@@ -131,7 +159,7 @@ func (self *DataBackupManager) findAndRemove(token uint32, seq uint16) bool {
 		self.FreeBuffer(v.Data)
 	}
 
-	self.data[token] = list[index:]
+	node.Nodes = list[index:]
 	return true
 }
 

@@ -74,14 +74,18 @@ func (self *DataSendManager) ExecuteForSocket(socket icinterface.ISocket) {
 			return
 
 		case <-time.After(time.Second):
-			dataList := dataBackupManager.GetDataList(socket.GetToken())
-			if dataList != nil {
+			node := dataBackupManager.GetDataList(socket.GetToken())
+			if node != nil {
+				node.RLock()
+
+				dataList := node.Nodes
 				for _, backupData := range dataList {
 					_, err := conn.Write(backupData.Data)
 					if err != nil {
 						log.Println("[!]", err)
 					}
 				}
+				node.RUnlock()
 			}
 
 		}
@@ -111,14 +115,19 @@ func (self *DataSendManager) Execute() {
 			return
 		case <-time.After(time.Second):
 			dataMap := dataBackupManager.GetData()
-			for token, dataList := range dataMap {
-				if dataList != nil {
+			for token, node := range dataMap {
+				if node != nil {
+					node.RLock()
+
+					dataList := node.Nodes
+
 					for _, backupData := range dataList {
 						socket := tokenManager.GetSocket(token)
 						if socket != nil {
 							conn.WriteToUDP(backupData.Data, socket.GetAddr())
 						}
 					}
+					node.RUnlock()
 				}
 			}
 		}
