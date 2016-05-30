@@ -202,7 +202,7 @@ func HandlePacket(
 	}
 
 	cmdId := head.CmdId
-	log.Println("cmd:", cmdId)
+	log.Println("[?]cmd:", cmdId)
 	if cmdId != 0 {
 		msg := protocolmanager.GetInstance().GetProtocol(cmdId)
 		if msg != nil {
