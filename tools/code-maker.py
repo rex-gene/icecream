@@ -39,12 +39,15 @@ def makeFile(id, name, readFilePath, writeFilePath, fixStr):
         fileNameFeilds = readFilePath.split('.')
         ext = fileNameFeilds[len(fileNameFeilds) - 1]
 
+        outFileName = name.lower() + fixStr  +"." + ext
+        if os.path.exists(outFileName):
+            return
+
         handlerFileInfo = handlerFile.read()
         handlerFile.close()
 
         handlerFileInfo = handlerFileInfo.replace("{@name}", name)
         handlerFileInfo = handlerFileInfo.replace("{@id}", id)
-        outFileName = name.lower() + fixStr  +"." + ext
 
         fp = open(writeFilePath + outFileName, "w")
         fp.write(handlerFileInfo)
