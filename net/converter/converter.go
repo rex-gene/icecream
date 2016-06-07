@@ -164,7 +164,7 @@ func HandlePacket(
 			SendStop(head, sender, dataBackupManager, addr)
 		} else {
 			srcSeq := cli.GetSrcSeq()
-			if head.DstSeqId > srcSeq {
+			if head.DstSeqId != srcSeq {
 				cli.SetSrcSeq(head.DstSeqId)
 				dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, databackupmanager.FIND_AND_REMOVE)
 			}
@@ -186,18 +186,15 @@ func HandlePacket(
 	}
 
 	dstSeq := cli.GetDstSeq()
-	if head.SrcSeqId < dstSeq {
-		log.Println("[!]srcSeqId < dstSeq:", head.SrcSeqId, dstSeq)
-		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buffer, protocol.RESET_FLAG, 0)
-
-	} else if head.SrcSeqId == dstSeq {
+	if head.SrcSeqId == dstSeq {
 		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 		SendData(cli, buffer, protocol.ACK_FLAG, 0)
 
 		cli.IncDstSeq()
 	} else {
-		log.Println("[!]invalid seqId drop it:", head.SrcSeqId)
+		log.Println("[!]srcSeqId < dstSeq:", head.SrcSeqId, dstSeq)
+		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+		SendData(cli, buffer, protocol.RESET_FLAG, 0)
 		return
 	}
 
