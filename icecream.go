@@ -86,7 +86,9 @@ func (self *IceCream) listen() {
 						socketmanager.GetInstance(),
 						databackupmanager.GetInstance(),
 						handlermanager.GetInstance(),
-						targetAddr, buffer, nil)
+						targetAddr, buffer[:readLen], nil)
+
+					converter.FreeBuffer(buffer)
 				}
 
 				threadpool.GetInstance().Start(task)

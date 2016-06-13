@@ -46,8 +46,8 @@ func (self *Socket) SetState(state int) {
 	self.state = state
 }
 
-func (self *Socket) SendData(data []byte, isNeedBackup bool) {
-	self.sender.SendData(self, data, isNeedBackup)
+func (self *Socket) SendData(data []byte, size uint, isNeedBackup bool) {
+	self.sender.SendData(self, data, size, isNeedBackup)
 }
 
 func (self *Socket) GetSrcSeq() uint16 {

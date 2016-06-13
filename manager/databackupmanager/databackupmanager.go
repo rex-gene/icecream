@@ -22,12 +22,14 @@ type ControlData struct {
 	Token  uint32
 	Seq    uint16
 	Data   []byte
+	Size   uint
 	Option int
 }
 
 type DataBackupNode struct {
 	Seq  uint16
 	Data []byte
+	Size uint
 }
 
 type DataNode struct {
@@ -66,7 +68,7 @@ func (self *DataBackupManager) FreeBuffer(buffer []byte) {
 	memorypool.GetInstance().Free(buffer)
 }
 
-func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte) {
+func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte, size uint) {
 	node := self.data[token]
 	if node == nil {
 		node = new(DataNode)
@@ -80,6 +82,7 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 	databackNode := DataBackupNode{
 		Seq:  seq,
 		Data: inputData,
+		Size: size,
 	}
 
 	node.Nodes = append(node.Nodes, databackNode)
@@ -163,11 +166,12 @@ func (self *DataBackupManager) findAndRemove(token uint32, seq uint16) bool {
 	return true
 }
 
-func (self *DataBackupManager) SendCmd(token uint32, seq uint16, data []byte, option int) {
+func (self *DataBackupManager) SendCmd(token uint32, seq uint16, data []byte, size uint, option int) {
 	cmd := ControlData{
 		Token:  token,
 		Seq:    seq,
 		Data:   data,
+		Size:   size,
 		Option: option,
 	}
 
@@ -185,7 +189,7 @@ func (self *DataBackupManager) Execute() {
 			switch data.Option {
 			case INSERT:
 				log.Println("[?]DataBackup insert token:", data.Token, " seq:", data.Seq)
-				self.insert(data.Token, data.Seq, data.Data)
+				self.insert(data.Token, data.Seq, data.Data, data.Size)
 			case REMOVE:
 				log.Println("[?]DataBackup remove", " token:", data.Token)
 				self.remove(data.Token)

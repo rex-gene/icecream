@@ -68,7 +68,9 @@ func (self *Connecter) listen() {
 						self.socketmanager,
 						self.dataBackupManager,
 						self.handlerManager,
-						targetAddr, buffer, self.socket)
+						targetAddr, buffer[:readLen], self.socket)
+
+					converter.FreeBuffer(buffer)
 				}
 
 				threadpool.GetInstance().Start(task)
@@ -83,7 +85,7 @@ func (self *Connecter) listen() {
 
 func (self *Connecter) connect() {
 	buffer := self.dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-	converter.SendData(self.socket, buffer, protocol.START_FLAG, 0)
+	converter.SendData(self.socket, buffer, uint(len(buffer)), protocol.START_FLAG, 0)
 }
 
 func (self *Connecter) Start() {

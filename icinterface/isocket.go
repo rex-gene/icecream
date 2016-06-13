@@ -16,7 +16,7 @@ type ISocket interface {
 	GetAddr() *net.UDPAddr
 
 	SetToken(uint32)
-	SendData([]byte, bool)
+	SendData([]byte, uint, bool)
 
 	IncDstSeq()
 	IncSrcSeq()

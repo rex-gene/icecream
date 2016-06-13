@@ -18,6 +18,7 @@ const (
 type CmdData struct {
 	Socket icinterface.ISocket
 	Data   []byte
+	Size   uint
 	Option int
 }
 
@@ -65,7 +66,7 @@ func (self *DataSendManager) ExecuteForSocket(socket icinterface.ISocket) {
 	for {
 		select {
 		case cmd := <-self.cmdList:
-			_, err := conn.Write(cmd.Data)
+			_, err := conn.Write(cmd.Data[:cmd.Size])
 			if err != nil {
 				log.Println("[!]", err)
 			}
@@ -80,7 +81,7 @@ func (self *DataSendManager) ExecuteForSocket(socket icinterface.ISocket) {
 
 				dataList := node.Nodes
 				for _, backupData := range dataList {
-					_, err := conn.Write(backupData.Data)
+					_, err := conn.Write(backupData.Data[:backupData.Size])
 					if err != nil {
 						log.Println("[!]", err)
 					}
@@ -106,7 +107,7 @@ func (self *DataSendManager) Execute() {
 		case cmd := <-self.cmdList:
 			socket := cmd.Socket
 			if socket != nil {
-				conn.WriteToUDP(cmd.Data, socket.GetAddr())
+				conn.WriteToUDP(cmd.Data[:cmd.Size], socket.GetAddr())
 				if cmd.Option == SEND_DATA_AND_FREE {
 					self.dataBackupManager.FreeBuffer(cmd.Data)
 				}
@@ -124,7 +125,7 @@ func (self *DataSendManager) Execute() {
 					for _, backupData := range dataList {
 						socket := tokenManager.GetSocket(token)
 						if socket != nil {
-							conn.WriteToUDP(backupData.Data, socket.GetAddr())
+							conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
 						}
 					}
 					node.RUnlock()
@@ -134,22 +135,23 @@ func (self *DataSendManager) Execute() {
 	}
 }
 
-func (self *DataSendManager) SendCmd(socket icinterface.ISocket, data []byte, option int) {
+func (self *DataSendManager) SendCmd(socket icinterface.ISocket, data []byte, size uint, option int) {
 	cmdData := CmdData{
 		Socket: socket,
 		Data:   data,
 		Option: option,
+		Size:   size,
 	}
 
 	self.cmdList <- cmdData
 }
 
-func (self *DataSendManager) SendData(socket icinterface.ISocket, data []byte, isNeedBackup bool) {
+func (self *DataSendManager) SendData(socket icinterface.ISocket, data []byte, size uint, isNeedBackup bool) {
 	if isNeedBackup {
-		self.SendCmd(socket, data, SEND_DATA)
-		self.dataBackupManager.SendCmd(socket.GetToken(), socket.GetSrcSeq(), data, databackupmanager.INSERT)
+		self.SendCmd(socket, data, size, SEND_DATA)
+		self.dataBackupManager.SendCmd(socket.GetToken(), socket.GetSrcSeq(), data, size, databackupmanager.INSERT)
 		socket.IncSrcSeq()
 	} else {
-		self.SendCmd(socket, data, SEND_DATA_AND_FREE)
+		self.SendCmd(socket, data, size, SEND_DATA_AND_FREE)
 	}
 }

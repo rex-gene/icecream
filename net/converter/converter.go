@@ -30,7 +30,7 @@ func GetSum(buffer []byte) byte {
 	return sumValue
 }
 
-func SendData(cli icinterface.ISocket, buffer []byte, flag byte, cmdId int) {
+func SendData(cli icinterface.ISocket, buffer []byte, size uint, flag byte, cmdId int) {
 	head := (*protocol.ICHead)(unsafe.Pointer(&buffer[0]))
 	head.Flag = flag
 	head.SrcSeqId = cli.GetSrcSeq()
@@ -49,7 +49,7 @@ func SendData(cli icinterface.ISocket, buffer []byte, flag byte, cmdId int) {
 		isNeedBackup = false
 	}
 
-	cli.SendData(buffer, isNeedBackup)
+	cli.SendData(buffer, size, isNeedBackup)
 }
 
 func SendMessage(
@@ -62,12 +62,17 @@ func SendMessage(
 		return
 	}
 
+	if len(msgData)+ICHEAD_SIZE > len(buffer) {
+		log.Println("[-]data too long, can not be send")
+		return
+	}
+
 	ptr := buffer[ICHEAD_SIZE:]
 	for i, v := range msgData {
 		ptr[i] = v
 	}
 
-	SendData(socket, buffer[:ICHEAD_SIZE+len(msgData)], protocol.PUSH_FLAG, id)
+	SendData(socket, buffer, uint(ICHEAD_SIZE+len(msgData)), protocol.PUSH_FLAG, id)
 }
 
 func CheckSum(buffer []byte) *protocol.ICHead {
@@ -101,13 +106,17 @@ func MakeBuffer(size uint) []byte {
 	return buffer
 }
 
+func FreeBuffer(buffer []byte) {
+	memorypool.GetInstance().Free(buffer)
+}
+
 func SendStop(head *protocol.ICHead, sender *datasendmanager.DataSendManager,
 	dataBackupManager *databackupmanager.DataBackupManager, addr *net.UDPAddr) {
 	cli := socket.New()
 	cli.Format(head, addr, sender)
 
 	buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-	SendData(cli, buffer, protocol.STOP_FLAG, 0)
+	SendData(cli, buffer, uint(len(buffer)), protocol.STOP_FLAG, 0)
 }
 
 func HandlePacket(
@@ -128,17 +137,17 @@ func HandlePacket(
 		if head.Flag&protocol.START_FLAG == 0 {
 			log.Println("[?]on ack")
 			token := head.Token
-			dataBackupManager.SendCmd(token, head.DstSeqId, nil, databackupmanager.FIND_AND_REMOVE)
+			dataBackupManager.SendCmd(token, head.DstSeqId, nil, 0, databackupmanager.FIND_AND_REMOVE)
 		} else {
 			log.Println("[?]on start ack")
-			dataBackupManager.SendCmd(0, head.DstSeqId, nil, databackupmanager.FIND_AND_REMOVE)
+			dataBackupManager.SendCmd(0, head.DstSeqId, nil, 0, databackupmanager.FIND_AND_REMOVE)
 
 			if sock != nil {
 				sock.Format(head, addr, sender)
 				tokenManager.AddSocketByToken(sock, head.Token)
 
-				buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-				SendData(sock, buffer, protocol.ACK_FLAG, 0)
+				buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+				SendData(sock, buff, uint(len(buff)), protocol.ACK_FLAG, 0)
 				sock.IncDstSeq()
 			}
 		}
@@ -151,8 +160,8 @@ func HandlePacket(
 		cli.Format(head, addr, sender)
 		tokenManager.AddSocket(cli)
 
-		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buffer, protocol.ACK_FLAG|protocol.START_FLAG, 0)
+		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+		SendData(cli, buff, uint(len(buff)), protocol.ACK_FLAG|protocol.START_FLAG, 0)
 		cli.IncDstSeq()
 		return
 	}
@@ -166,9 +175,13 @@ func HandlePacket(
 			srcSeq := cli.GetSrcSeq()
 			if head.DstSeqId != srcSeq {
 				cli.SetSrcSeq(head.DstSeqId)
-				dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, databackupmanager.FIND_AND_REMOVE)
+				dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, 0, databackupmanager.FIND_AND_REMOVE)
 			}
 		}
+		return
+	}
+
+	if head.Flag&protocol.STOP_FLAG != 0 {
 		return
 	}
 
@@ -187,15 +200,15 @@ func HandlePacket(
 
 	dstSeq := cli.GetDstSeq()
 	if head.SrcSeqId == dstSeq {
-		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buffer, protocol.ACK_FLAG, 0)
+		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+		SendData(cli, buff, uint(len(buff)), protocol.ACK_FLAG, 0)
 		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 
 		cli.IncDstSeq()
 	} else {
 		log.Println("[!]srcSeqId < dstSeq:", head.SrcSeqId, dstSeq)
-		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buffer, protocol.RESET_FLAG, 0)
+		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+		SendData(cli, buff, uint(len(buff)), protocol.RESET_FLAG, 0)
 		return
 	}
 
@@ -211,6 +224,4 @@ func HandlePacket(
 		}
 
 	}
-
-	memorypool.GetInstance().Free(buffer)
 }
