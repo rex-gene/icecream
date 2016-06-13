@@ -189,6 +189,7 @@ func HandlePacket(
 	if head.SrcSeqId == dstSeq {
 		buffer := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 		SendData(cli, buffer, protocol.ACK_FLAG, 0)
+		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 
 		cli.IncDstSeq()
 	} else {

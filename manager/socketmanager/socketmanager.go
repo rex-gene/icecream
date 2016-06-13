@@ -40,11 +40,11 @@ func (self *SocketManager) CheckAndRemoveTimeoutSocket() {
 				state := socket.GetState()
 				if state == icinterface.SYN_STATE {
 					if diff > 2 {
-						self.removeSocket(token)
+						self.RemoveSocket(token)
 					}
 				} else if state == icinterface.SYN_NORMAL {
 					if diff > 60 {
-						self.removeSocket(token)
+						self.RemoveSocket(token)
 					}
 				}
 			}
@@ -55,7 +55,7 @@ func (self *SocketManager) CheckAndRemoveTimeoutSocket() {
 
 }
 
-func (self *SocketManager) removeSocket(token uint32) {
+func (self *SocketManager) RemoveSocket(token uint32) {
 	self.Lock()
 	defer self.Unlock()
 
