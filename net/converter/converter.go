@@ -38,7 +38,7 @@ func SendData(cli icinterface.ISocket, buffer []byte, size uint, flag byte, cmdI
 	head.Token = 0
 	head.CmdId = uint32(cmdId)
 	head.Sum = 0
-	head.Len = uint16(len(buffer))
+	head.Len = uint16(size)
 	head.Sum = GetSum(buffer[:head.Len])
 	head.Token = cli.GetToken()
 
