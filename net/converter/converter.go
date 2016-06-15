@@ -39,10 +39,10 @@ func SendData(cli icinterface.ISocket, buffer []byte, size uint, flag byte, cmdI
 	head.CmdId = uint32(cmdId)
 	head.Sum = 0
 	head.Len = uint16(size)
-	head.Sum = GetSum(buffer[:head.Len])
+	head.Sum = GetSum(buffer[:size])
 	head.Token = cli.GetToken()
 
-	log.Println("[?]send data:", *head)
+	log.Println("[?]send data:", buffer[:size])
 
 	isNeedBackup := true
 	if flag == protocol.ACK_FLAG || flag == protocol.RESET_FLAG || flag == protocol.STOP_FLAG {
