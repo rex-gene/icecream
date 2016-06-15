@@ -17,7 +17,7 @@ enum_tmp_file = None
 
 def usage() :
     print sys.argv[0] + " <options>"
-    print "version:1.0"
+    print "version:1.1"
     print "option:"
     print "\t--handler-template=<handler template file name>"
     print "\t--protocol-template=<protocol template file name>"
@@ -98,6 +98,9 @@ def makeFiles():
     initResult = ""
     enumResult = ""
 
+    initInfoResult = getLoopZoneRegex.findall(initInfo)
+    enumInfoResult = getLoopZoneRegex.findall(enumInfo)
+
     line = 0
     config = open(protocol_config)
     for data in config.readlines():
@@ -112,17 +115,15 @@ def makeFiles():
             makeFile(id, name, handler_tmp_file, handler_output, "Handler")
             makeFile(id, name, protocol_tmp_file, protocol_output, "Protoc")
 
-            result = getLoopZoneRegex.findall(initInfo)
-            if len(result) != 0:
-                info = result[0]
+            if len(initInfoResult) != 0:
+                info = initInfoResult[0]
                 info = info.replace("{@name}", name)
                 info = info.replace("{@id}", id)
 
                 initResult = initResult + info
 
-            result = getLoopZoneRegex.findall(enumInfo)
-            if len(result) != 0:
-                info = result[0]
+            if len(enumInfoResult) != 0:
+                info = enumInfoResult[0]
                 info = info.replace("{@name}", name)
                 info = info.replace("{@id}", id)
 
@@ -145,10 +146,6 @@ def makeFiles():
     initWriteFile = open(init_output + outFileName, "w")
     initWriteFile.write(writeData)
     initWriteFile.close()
-
-    enumInfo = enumInfo.replace("{@name}", name)
-    enumInfo = enumInfo.replace("{@id}", id)
-
 
 if __name__ == "__main__" :
     for key, value in opts:
