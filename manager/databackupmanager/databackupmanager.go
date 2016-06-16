@@ -131,7 +131,6 @@ func (self *DataBackupManager) GetData() map[uint32]*DataNode {
 }
 
 func (self *DataBackupManager) findAndRemove(token uint32, seq uint16) bool {
-	log.Println("[?]in")
 	node := self.data[token]
 	if node == nil {
 		log.Println("[!]token:", token, " seq:", seq, " drop!", self.data)
@@ -150,9 +149,11 @@ func (self *DataBackupManager) findAndRemove(token uint32, seq uint16) bool {
 
 	index := 0
 	for _, v := range list {
-		index++
-		if seq == v.Seq {
+		diff := uint32(seq - v.Seq)
+		if diff >= 0 && diff < uint32(0x8000) {
 			log.Println("[?]found seq")
+			index++
+		} else {
 			break
 		}
 	}
