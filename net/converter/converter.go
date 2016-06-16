@@ -42,7 +42,7 @@ func SendData(cli icinterface.ISocket, buffer []byte, size uint, flag byte, cmdI
 	head.Sum = GetSum(buffer[:size])
 	head.Token = cli.GetToken()
 
-	log.Println("[?]send data:", buffer[:size])
+	log.Println("[?]send data")
 
 	isNeedBackup := true
 	if flag == protocol.ACK_FLAG || flag == protocol.RESET_FLAG || flag == protocol.STOP_FLAG {
@@ -167,21 +167,22 @@ func HandlePacket(
 	}
 
 	if head.Flag&protocol.RESET_FLAG != 0 {
-		log.Println("[?]on reset")
+		log.Println("[!]on reset")
 		cli := tokenManager.GetSocket(head.Token)
 		if cli == nil {
+			log.Println("[!]socket close")
 			SendStop(head, sender, dataBackupManager, addr)
 		} else {
 			srcSeq := cli.GetSrcSeq()
-			if head.DstSeqId != srcSeq {
-				cli.SetSrcSeq(head.DstSeqId)
-				dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, 0, databackupmanager.FIND_AND_REMOVE)
-			}
+			log.Println("[!]handle reset: head.DstSeqId:", head.DstSeqId, " srcSeq:", srcSeq)
+			cli.SetSrcSeq(head.DstSeqId)
+			dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, 0, databackupmanager.FIND_AND_REMOVE)
 		}
 		return
 	}
 
 	if head.Flag&protocol.STOP_FLAG != 0 {
+		log.Println("[?]on stop")
 		return
 	}
 
@@ -194,6 +195,7 @@ func HandlePacket(
 
 	cli := tokenManager.GetSocket(head.Token)
 	if cli == nil {
+		log.Println("[!]send stop")
 		SendStop(head, sender, dataBackupManager, addr)
 		return
 	}
@@ -206,7 +208,7 @@ func HandlePacket(
 
 		cli.IncDstSeq()
 	} else {
-		log.Println("[!]srcSeqId < dstSeq:", head.SrcSeqId, dstSeq)
+		log.Println("[!]send reset:", head.SrcSeqId, dstSeq)
 		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 		SendData(cli, buff, uint(len(buff)), protocol.RESET_FLAG, 0)
 		return
