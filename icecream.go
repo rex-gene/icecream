@@ -3,13 +3,13 @@ package icecream
 import (
 	"github.com/RexGene/common/threadpool"
 	"github.com/RexGene/icecream/icinterface"
-	"github.com/RexGene/icecream/manager/connectermanager"
+	"github.com/RexGene/icecream/manager/connectormanager"
 	"github.com/RexGene/icecream/manager/databackupmanager"
 	"github.com/RexGene/icecream/manager/datasendmanager"
 	"github.com/RexGene/icecream/manager/handlermanager"
 	"github.com/RexGene/icecream/manager/protocolmanager"
 	"github.com/RexGene/icecream/manager/socketmanager"
-	"github.com/RexGene/icecream/net/connecter"
+	"github.com/RexGene/icecream/net/connector"
 	"github.com/RexGene/icecream/net/converter"
 	"github.com/golang/protobuf/proto"
 	"log"
@@ -55,7 +55,7 @@ func (self *IceCream) RegistHandler(id uint32, handleFunc func(icinterface.ISock
 	self.handlerManager.RegistHandler(id, handleFunc)
 }
 
-func (self *IceCream) Connect(serverName string, addr string) (*connecter.Connecter, error) {
+func (self *IceCream) Connect(serverName string, addr string) (*connector.Connector, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return nil, err
@@ -66,12 +66,12 @@ func (self *IceCream) Connect(serverName string, addr string) (*connecter.Connec
 		return nil, err
 	}
 
-	connecter := connecter.New(udpConn, udpAddr)
-	connecter.Start()
+	connector := connector.New(udpConn, udpAddr)
+	connector.Start()
 
-	connectermanager.GetInstance().Insert(serverName, connecter)
+	connectormanager.GetInstance().Insert(serverName, connector)
 
-	return connecter, nil
+	return connector, nil
 }
 
 func (self *IceCream) listen() {
@@ -81,6 +81,7 @@ func (self *IceCream) listen() {
 		if err == nil {
 			if readLen >= ICHEAD_SIZE {
 				task := func() {
+					log.Println("[?]HandleTask")
 					converter.HandlePacket(
 						datasendmanager.GetInstance(),
 						socketmanager.GetInstance(),
@@ -91,6 +92,7 @@ func (self *IceCream) listen() {
 					converter.FreeBuffer(buffer)
 				}
 
+				log.Println("[?]beginTask")
 				threadpool.GetInstance().Start(task)
 			} else {
 				log.Println("[!]data len too short:", readLen)

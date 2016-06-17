@@ -1,4 +1,4 @@
-package connecter
+package connector
 
 import (
 	"github.com/RexGene/common/threadpool"
@@ -20,7 +20,7 @@ const (
 	ICHEAD_SIZE      = 16
 )
 
-type Connecter struct {
+type Connector struct {
 	socket *socket.Socket
 
 	conn              *net.UDPConn
@@ -31,11 +31,11 @@ type Connecter struct {
 	handlerManager    *handlermanager.HandlerManager
 }
 
-func (self *Connecter) SendMessage(id int, msg proto.Message) {
+func (self *Connector) SendMessage(id int, msg proto.Message) {
 	converter.SendMessage(self.socket, id, msg)
 }
 
-func New(conn *net.UDPConn, addr *net.UDPAddr) *Connecter {
+func New(conn *net.UDPConn, addr *net.UDPAddr) *Connector {
 	dataBackupManager := databackupmanager.New()
 	dataSendManager := datasendmanager.New()
 	socketmanager := socketmanager.New()
@@ -46,7 +46,7 @@ func New(conn *net.UDPConn, addr *net.UDPAddr) *Connecter {
 	sk := socket.New()
 	sk.SetSender(dataSendManager)
 	sk.Addr = addr
-	return &Connecter{
+	return &Connector{
 		socket:            sk,
 		dataSendManager:   dataSendManager,
 		conn:              conn,
@@ -56,7 +56,7 @@ func New(conn *net.UDPConn, addr *net.UDPAddr) *Connecter {
 	}
 }
 
-func (self *Connecter) listen() {
+func (self *Connector) listen() {
 	for self.isRunning {
 		buffer := converter.MakeBuffer(READ_BUFFER_SIZE)
 		readLen, targetAddr, err := self.conn.ReadFromUDP(buffer)
@@ -83,12 +83,12 @@ func (self *Connecter) listen() {
 	}
 }
 
-func (self *Connecter) connect() {
+func (self *Connector) connect() {
 	buffer := self.dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 	converter.SendData(self.socket, buffer, uint(len(buffer)), protocol.START_FLAG, 0)
 }
 
-func (self *Connecter) Start() {
+func (self *Connector) Start() {
 	go self.dataSendManager.ExecuteForSocket(self.socket)
 	go self.dataBackupManager.Execute()
 	go self.handlerManager.Execute()
@@ -98,18 +98,18 @@ func (self *Connecter) Start() {
 	self.connect()
 }
 
-func (self *Connecter) Stop() {
+func (self *Connector) Stop() {
 	self.dataSendManager.Stop()
 	self.dataBackupManager.Stop()
 	self.handlerManager.Stop()
 	self.isRunning = false
 }
 
-func (self *Connecter) Close() {
+func (self *Connector) Close() {
 	self.Stop()
 	self.conn.Close()
 }
 
-func (self *Connecter) RegistHandler(id uint32, handleFunc func(icinterface.ISocket, proto.Message)) {
+func (self *Connector) RegistHandler(id uint32, handleFunc func(icinterface.ISocket, proto.Message)) {
 	self.handlerManager.RegistHandler(id, handleFunc)
 }
