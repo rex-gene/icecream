@@ -175,7 +175,6 @@ func HandlePacket(
 		} else {
 			srcSeq := cli.GetSrcSeq()
 			log.Println("[!]handle reset: head.DstSeqId:", head.DstSeqId, " srcSeq:", srcSeq)
-			cli.SetSrcSeq(head.DstSeqId)
 			dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, 0, databackupmanager.FIND_AND_REMOVE)
 		}
 		return
@@ -191,14 +190,14 @@ func HandlePacket(
 		return
 	}
 
-	log.Println("[?]on push")
-
 	cli := tokenManager.GetSocket(head.Token)
 	if cli == nil {
 		log.Println("[!]send stop")
 		SendStop(head, sender, dataBackupManager, addr)
 		return
 	}
+
+	log.Println("[?]on push")
 
 	dstSeq := cli.GetDstSeq()
 	if head.SrcSeqId == dstSeq {

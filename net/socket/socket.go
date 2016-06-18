@@ -8,8 +8,8 @@ import (
 )
 
 type Socket struct {
-	SrcSeq uint16
-	DstSeq uint16
+	SrcSeq uint8
+	DstSeq uint8
 
 	Token uint32
 	Addr  *net.UDPAddr
@@ -51,11 +51,11 @@ func (self *Socket) SendData(data []byte, size uint, isNeedBackup bool) {
 }
 
 func (self *Socket) GetSrcSeq() uint16 {
-	return self.SrcSeq
+	return uint16(self.SrcSeq)
 }
 
 func (self *Socket) GetDstSeq() uint16 {
-	return self.DstSeq
+	return uint16(self.DstSeq)
 }
 
 func (self *Socket) GetToken() uint32 {
@@ -82,5 +82,5 @@ func (self *Socket) IncSrcSeq() {
 
 func (self *Socket) SetSrcSeq(seq uint16) {
 	self.lastControlTime = time.Now().Unix()
-	self.SrcSeq = seq
+	self.SrcSeq = uint8(seq)
 }

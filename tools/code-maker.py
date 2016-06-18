@@ -101,38 +101,41 @@ def makeFiles():
     initInfoResult = getLoopZoneRegex.findall(initInfo)
     enumInfoResult = getLoopZoneRegex.findall(enumInfo)
 
-    line = 0
-    config = open(protocol_config)
-    for data in config.readlines():
-        if line >= 2:
-            feilds=data.split(',')
-            if len(feilds) != 2 :
-                print "protocol config file invalid"
+    configFilss = protocol_config.split("#")
+    for configFile in configFilss :
+        line = 0
+        config = open(configFile)
+        for data in config.readlines():
+            if line >= 2:
+                feilds=data.split(',')
+                if len(feilds) != 2 :
+                    print "protocol config file invalid"
 
-            id=feilds[0].strip()
-            name=feilds[1].strip()
+                id=feilds[0].strip()
+                name=feilds[1].strip()
 
-            makeFile(id, name, handler_tmp_file, handler_output, "Handler")
-            makeFile(id, name, protocol_tmp_file, protocol_output, "Protoc")
+                makeFile(id, name, handler_tmp_file, handler_output, "Handler")
+                makeFile(id, name, protocol_tmp_file, protocol_output, "Protoc")
 
-            if len(initInfoResult) != 0:
-                info = initInfoResult[0]
-                info = info.replace("{@name}", name)
-                info = info.replace("{@id}", id)
+                if len(initInfoResult) != 0:
+                    info = initInfoResult[0]
+                    info = info.replace("{@name}", name)
+                    info = info.replace("{@id}", id)
 
-                initResult = initResult + info
+                    initResult = initResult + info
 
-            if len(enumInfoResult) != 0:
-                info = enumInfoResult[0]
-                info = info.replace("{@name}", name)
-                info = info.replace("{@id}", id)
+                if len(enumInfoResult) != 0:
+                    info = enumInfoResult[0]
+                    info = info.replace("{@name}", name)
+                    info = info.replace("{@id}", id)
 
-                enumResult = enumResult + info
+                    enumResult = enumResult + info
 
 
-        line = line + 1
-        
-    config.close()
+            line = line + 1
+            
+        config.close()
+
 
     writeData = getLoopZoneRegex.sub(enumResult, enumInfo)
     ext = getExt(enum_tmp_file)

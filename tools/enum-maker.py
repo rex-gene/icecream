@@ -7,7 +7,7 @@ opts, args = getopt.getopt(sys.argv[1:], "", ["skip-line=", "config-file-path=",
 
 def usage() :
     print sys.argv[0] + " <options>"
-    print "version:1.0"
+    print "version:1.1"
     print "option:"
     print "\t--skip-line=<skip line count>"
     print "\t--config-file-path=<config file path>"
@@ -20,46 +20,48 @@ def makeFile(skip_line, config_file_path, temp_file_path, write_file_path):
         print "[-]temp file not exists"
         return False
 
-    if not os.path.exists(config_file_path):
-        print "[-]config file not exists"
-        return False
-
     getLoopZoneRegex = re.compile("\{#begin\}([\s\S]*)\{#end\}", re.M)
 
-    config_file = open(config_file_path)
-    line = 0
+    file_paths = config_file_path.split("#")
     result = ""
+    for file_path in file_paths:
+        if not os.path.exists(file_path):
+            print "[-]config file not exists:" + file_path
+            return False
 
-    temp_file = open(temp_file_path)
-    temp_info = temp_file.read()
-    temp_file.close()
+        config_file = open(file_path)
+        line = 0
 
-    infoResult = getLoopZoneRegex.findall(temp_info)
-    if len(infoResult) == 0:
-        print "[-]temp file have not token"
-        return False
+        temp_file = open(temp_file_path)
+        temp_info = temp_file.read()
+        temp_file.close()
 
-    for data  in config_file.readlines():
-        if line >= int(skip_line):
-            feilds=data.split(',')        
-            if len(feilds) < 2 :
-                print "[-]config file invalid"
-                return False
+        infoResult = getLoopZoneRegex.findall(temp_info)
+        if len(infoResult) == 0:
+            print "[-]temp file have not token"
+            return False
 
-
-            id = feilds[0].strip()
-            name = feilds[1].strip()
-
-            info = infoResult[0]
-            info = info.replace("{@name}", name)
-            info = info.replace("{@id}", id)
-
-            result = result + info
+        for data  in config_file.readlines():
+            if line >= int(skip_line):
+                feilds=data.split(',')        
+                if len(feilds) < 2 :
+                    print "[-]config file invalid"
+                    return False
 
 
-        line = line + 1
+                id = feilds[0].strip()
+                name = feilds[1].strip()
 
-    config_file.close()
+                info = infoResult[0]
+                info = info.replace("{@name}", name)
+                info = info.replace("{@id}", id)
+
+                result = result + info
+
+
+            line = line + 1
+
+        config_file.close()
 
     writeData = getLoopZoneRegex.sub(result, temp_info)
     out_file = open(write_file_path, "w")

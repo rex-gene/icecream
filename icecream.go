@@ -76,8 +76,11 @@ func (self *IceCream) Connect(serverName string, addr string) (*connector.Connec
 
 func (self *IceCream) listen() {
 	for self.isRunning {
+		log.Println("[?]before MakeBuffer")
 		buffer := converter.MakeBuffer(READ_BUFFER_SIZE)
+		log.Println("[?]after MakeBuffer")
 		readLen, targetAddr, err := self.conn.ReadFromUDP(buffer)
+		log.Println("[?]after read:", readLen)
 		if err == nil {
 			if readLen >= ICHEAD_SIZE {
 				task := func() {

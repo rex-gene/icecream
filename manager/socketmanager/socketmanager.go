@@ -16,6 +16,7 @@ type SocketManager struct {
 	dataMap           map[uint32]icinterface.ISocket
 	dataBackupManager *databackupmanager.DataBackupManager
 	stopEvent         chan bool
+	timeout           uint
 }
 
 func GetInstance() *SocketManager {
@@ -24,6 +25,10 @@ func GetInstance() *SocketManager {
 	}
 
 	return instance
+}
+
+func (self *SocketManager) SetTimeout(t uint) {
+	self.timeout = t
 }
 
 func (self *SocketManager) SetDataBackupManager(dataBackupManager *databackupmanager.DataBackupManager) {
@@ -43,8 +48,10 @@ func (self *SocketManager) CheckAndRemoveTimeoutSocket() {
 						self.RemoveSocket(token)
 					}
 				} else if state == icinterface.SYN_NORMAL {
-					if diff > 60 {
-						self.RemoveSocket(token)
+					if self.timeout != 0 {
+						if uint(diff) > self.timeout {
+							self.RemoveSocket(token)
+						}
 					}
 				}
 			}
@@ -119,5 +126,6 @@ func New() *SocketManager {
 	return &SocketManager{
 		dataMap:   make(map[uint32]icinterface.ISocket),
 		stopEvent: make(chan bool, 1),
+		timeout:   120,
 	}
 }
