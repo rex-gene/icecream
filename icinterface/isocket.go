@@ -7,6 +7,7 @@ import (
 const (
 	SYN_STATE  = 0
 	SYN_NORMAL = 1
+	SHUT_DOWN  = 2
 )
 
 type ISocket interface {
@@ -26,5 +27,8 @@ type ISocket interface {
 	GetState() int
 	SetState(int)
 
+	AddDstSeq(uint16)
+
 	SetSrcSeq(uint16)
+	InsertBackupList(uint16, []byte) uint
 }

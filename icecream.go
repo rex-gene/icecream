@@ -85,14 +85,14 @@ func (self *IceCream) listen() {
 			if readLen >= ICHEAD_SIZE {
 				task := func() {
 					log.Println("[?]HandleTask")
-					converter.HandlePacket(
+					if converter.HandlePacket(
 						datasendmanager.GetInstance(),
 						socketmanager.GetInstance(),
 						databackupmanager.GetInstance(),
 						handlermanager.GetInstance(),
-						targetAddr, buffer[:readLen], nil)
-
-					converter.FreeBuffer(buffer)
+						targetAddr, buffer[:readLen], nil) {
+						converter.FreeBuffer(buffer)
+					}
 				}
 
 				log.Println("[?]beginTask")

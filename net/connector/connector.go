@@ -63,14 +63,14 @@ func (self *Connector) listen() {
 		if err == nil {
 			if readLen >= ICHEAD_SIZE {
 				task := func() {
-					converter.HandlePacket(
+					if converter.HandlePacket(
 						self.dataSendManager,
 						self.socketmanager,
 						self.dataBackupManager,
 						self.handlerManager,
-						targetAddr, buffer[:readLen], self.socket)
-
-					converter.FreeBuffer(buffer)
+						targetAddr, buffer[:readLen], self.socket) {
+						converter.FreeBuffer(buffer)
+					}
 				}
 
 				threadpool.GetInstance().Start(task)

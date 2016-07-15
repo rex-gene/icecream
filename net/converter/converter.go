@@ -42,7 +42,7 @@ func SendData(cli icinterface.ISocket, buffer []byte, size uint, flag byte, cmdI
 	head.Sum = GetSum(buffer[:size])
 	head.Token = cli.GetToken()
 
-	log.Println("[?]send data")
+	log.Println("[?]send data:", size)
 
 	isNeedBackup := true
 	if flag == protocol.ACK_FLAG || flag == protocol.RESET_FLAG || flag == protocol.STOP_FLAG {
@@ -124,11 +124,11 @@ func HandlePacket(
 	tokenManager icinterface.ITokenManager,
 	dataBackupManager *databackupmanager.DataBackupManager,
 	handlerManager *handlermanager.HandlerManager,
-	addr *net.UDPAddr, buffer []byte, sock *socket.Socket) {
+	addr *net.UDPAddr, buffer []byte, sock *socket.Socket) bool {
 
 	head := CheckSum(buffer)
 	if head == nil {
-		return
+		return true
 	}
 
 	log.Println("[?]flag:", head.Flag)
@@ -151,7 +151,7 @@ func HandlePacket(
 				sock.IncDstSeq()
 			}
 		}
-		return
+		return true
 	}
 
 	if head.Flag&protocol.START_FLAG != 0 {
@@ -163,7 +163,7 @@ func HandlePacket(
 		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 		SendData(cli, buff, uint(len(buff)), protocol.ACK_FLAG|protocol.START_FLAG, 0)
 		cli.IncDstSeq()
-		return
+		return true
 	}
 
 	if head.Flag&protocol.RESET_FLAG != 0 {
@@ -177,24 +177,24 @@ func HandlePacket(
 			log.Println("[!]handle reset: head.DstSeqId:", head.DstSeqId, " srcSeq:", srcSeq)
 			dataBackupManager.SendCmd(head.Token, head.DstSeqId-1, nil, 0, databackupmanager.FIND_AND_REMOVE)
 		}
-		return
+		return true
 	}
 
 	if head.Flag&protocol.STOP_FLAG != 0 {
 		log.Println("[?]on stop")
-		return
+		return true
 	}
 
 	if head.Flag&protocol.PUSH_FLAG == 0 {
 		log.Println("[!]data flag is invalid:", head.Flag)
-		return
+		return true
 	}
 
 	cli := tokenManager.GetSocket(head.Token)
 	if cli == nil {
 		log.Println("[!]send stop")
 		SendStop(head, sender, dataBackupManager, addr)
-		return
+		return true
 	}
 
 	log.Println("[?]on push")
@@ -206,11 +206,13 @@ func HandlePacket(
 		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 
 		cli.IncDstSeq()
+		//} else if head.SrcSeqId > dstSeq {
+		//	cli.InsertBackupList(head.SrcSeqId, buffer)
 	} else {
 		log.Println("[!]send reset:", head.SrcSeqId, dstSeq)
 		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
 		SendData(cli, buff, uint(len(buff)), protocol.RESET_FLAG, 0)
-		return
+		return true
 	}
 
 	cmdId := head.CmdId
@@ -225,4 +227,6 @@ func HandlePacket(
 		}
 
 	}
+
+	return true
 }

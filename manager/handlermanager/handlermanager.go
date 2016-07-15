@@ -16,6 +16,7 @@ type LogicMsg struct {
 type HandlerManager struct {
 	handlerMap   map[uint32]func(icinterface.ISocket, proto.Message)
 	logicMsgList chan LogicMsg
+	callbackList chan func()
 	exitEvent    chan bool
 }
 
@@ -26,6 +27,7 @@ func New() *HandlerManager {
 		handlerMap:   make(map[uint32]func(icinterface.ISocket, proto.Message)),
 		logicMsgList: make(chan LogicMsg, MAX_HANDLE_COUNT),
 		exitEvent:    make(chan bool, 1),
+		callbackList: make(chan func(), 16),
 	}
 }
 
@@ -39,6 +41,10 @@ func (self *HandlerManager) PushMessage(cmdId uint32, sock icinterface.ISocket, 
 	self.logicMsgList <- logicMsg
 }
 
+func (self *HandlerManager) PushCallback(cb func()) {
+	self.callbackList <- cb
+}
+
 func (self *HandlerManager) Execute() {
 	for {
 		select {
@@ -46,6 +52,10 @@ func (self *HandlerManager) Execute() {
 			self.HandleMessage(uint32(logicMsg.cmdId), logicMsg.sock, logicMsg.msg)
 		case <-self.exitEvent:
 			return
+		case cb := <-self.callbackList:
+			if cb != nil {
+				cb()
+			}
 		}
 	}
 }

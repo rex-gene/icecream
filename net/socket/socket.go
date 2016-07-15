@@ -1,11 +1,17 @@
 package socket
 
 import (
+	"container/list"
 	"github.com/RexGene/icecream/manager/datasendmanager"
 	"github.com/RexGene/icecream/protocol"
 	"net"
 	"time"
 )
+
+type recvBackupData struct {
+	seqId uint16
+	data  []byte
+}
 
 type Socket struct {
 	SrcSeq uint16
@@ -17,10 +23,33 @@ type Socket struct {
 	state           int
 	lastControlTime int64
 	sender          *datasendmanager.DataSendManager
+	recvList        *list.List
 }
 
 func New() *Socket {
 	return &Socket{}
+}
+
+func (self *Socket) InsertBackupList(seqId uint16, data []byte) uint {
+	self.lastControlTime = time.Now().Unix()
+
+	newBackup := &recvBackupData{
+		seqId: seqId,
+		data:  data,
+	}
+
+	recvList := self.recvList
+	for iter := recvList.Front(); iter != nil; iter = iter.Next() {
+		backupdata := iter.Value.(*recvBackupData)
+		if seqId < backupdata.seqId {
+			recvList.InsertBefore(newBackup, iter)
+			return 1
+		}
+	}
+
+	recvList.PushFront(newBackup)
+
+	return 1
 }
 
 func (self *Socket) SetSender(sender *datasendmanager.DataSendManager) {
@@ -75,12 +104,14 @@ func (self *Socket) IncDstSeq() {
 	self.DstSeq++
 }
 
+func (self *Socket) AddDstSeq(value uint16) {
+	self.DstSeq += value
+}
+
 func (self *Socket) IncSrcSeq() {
-	self.lastControlTime = time.Now().Unix()
 	self.SrcSeq++
 }
 
 func (self *Socket) SetSrcSeq(seq uint16) {
-	self.lastControlTime = time.Now().Unix()
 	self.SrcSeq = seq
 }
