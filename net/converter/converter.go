@@ -206,8 +206,13 @@ func HandlePacket(
 		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 
 		cli.IncDstSeq()
-		//} else if head.SrcSeqId > dstSeq {
-		//	cli.InsertBackupList(head.SrcSeqId, buffer)
+	} else if head.SrcSeqId > dstSeq {
+		cli.InsertBackupList(head.SrcSeqId, buffer)
+
+		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
+		SendData(cli, buff, uint(len(buff)), protocol.ACK_FLAG, 0)
+		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
+		return false
 	} else {
 		log.Println("[!]send reset:", head.SrcSeqId, dstSeq)
 		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
