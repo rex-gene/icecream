@@ -119,6 +119,23 @@ func SendStop(head *protocol.ICHead, sender *datasendmanager.DataSendManager,
 	SendData(cli, buffer, uint(len(buffer)), protocol.STOP_FLAG, 0)
 }
 
+func PushMessage(buffer []byte, cli icinterface.ISocket, handlerManager *handlermanager.HandlerManager) {
+	head := (*protocol.ICHead)(unsafe.Pointer(&buffer[0]))
+	cmdId := head.CmdId
+	log.Println("[?]cmd:", cmdId)
+	if cmdId != 0 {
+		msg := protocolmanager.GetInstance().GetProtocol(cmdId)
+		if msg != nil {
+			proto.Unmarshal(buffer[ICHEAD_SIZE:], msg)
+			handlerManager.PushMessage(cmdId, cli, msg)
+		} else {
+			log.Println("[!]protocol not found")
+		}
+
+	}
+
+}
+
 func HandlePacket(
 	sender *datasendmanager.DataSendManager,
 	tokenManager icinterface.ITokenManager,
@@ -205,8 +222,14 @@ func HandlePacket(
 		SendData(cli, buff, uint(len(buff)), protocol.ACK_FLAG, 0)
 		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 
+		var handleBackupList = func(data []byte) {
+			PushMessage(buffer, cli, handlerManager)
+			cli.IncDstSeq()
+		}
+
 		cli.IncDstSeq()
-	} else if head.SrcSeqId > dstSeq {
+		cli.SetDstSeq(cli.EachBackupPacket(cli.GetDstSeq(), handleBackupList))
+	} else if head.SrcSeqId-dstSeq < uint16(0x8000) {
 		cli.InsertBackupList(head.SrcSeqId, buffer)
 
 		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
@@ -214,9 +237,10 @@ func HandlePacket(
 		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 		return false
 	} else {
-		log.Println("[!]send reset:", head.SrcSeqId, dstSeq)
+
 		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buff, uint(len(buff)), protocol.RESET_FLAG, 0)
+		SendData(cli, buff, uint(len(buff)), protocol.ACK_FLAG, 0)
+		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 		return true
 	}
 

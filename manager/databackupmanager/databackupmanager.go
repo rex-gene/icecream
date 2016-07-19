@@ -27,14 +27,13 @@ type ControlData struct {
 }
 
 type DataBackupNode struct {
-	Seq  uint16
 	Data []byte
 	Size uint
 }
 
 type DataNode struct {
 	sync.RWMutex
-	Nodes []DataBackupNode
+	Nodes map[uint16]*DataBackupNode
 }
 
 type DataBackupManager struct {
@@ -72,20 +71,19 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 	node := self.data[token]
 	if node == nil {
 		node = new(DataNode)
-		node.Nodes = make([]DataBackupNode, 0, DEFAULT_CAP)
+		node.Nodes = make(map[uint16]*DataBackupNode)
 		self.data[token] = node
 	}
 
 	node.Lock()
 	defer node.Unlock()
 
-	databackNode := DataBackupNode{
-		Seq:  seq,
+	databackNode := &DataBackupNode{
 		Data: inputData,
 		Size: size,
 	}
 
-	node.Nodes = append(node.Nodes, databackNode)
+	node.Nodes[seq] = databackNode
 }
 
 func (self *DataBackupManager) clear() {
@@ -140,30 +138,13 @@ func (self *DataBackupManager) findAndRemove(token uint32, seq uint16) bool {
 	node.Lock()
 	defer node.Unlock()
 
-	list := node.Nodes
-
-	if len(list) == 0 {
-		log.Println("[!]list is empty token:", token, " seq:", seq, " drop!")
-		return false
+	nodes := node.Nodes
+	dataNode := nodes[seq]
+	if dataNode != nil {
+		self.FreeBuffer(dataNode.Data)
+		delete(nodes, seq)
 	}
 
-	index := 0
-	for _, v := range list {
-		diff := uint32(seq - v.Seq)
-		if diff >= 0 && diff < uint32(0x8000) {
-			log.Println("[?]found seq")
-			index++
-		} else {
-			break
-		}
-	}
-
-	removeList := list[0:index]
-	for _, v := range removeList {
-		self.FreeBuffer(v.Data)
-	}
-
-	node.Nodes = list[index:]
 	return true
 }
 
