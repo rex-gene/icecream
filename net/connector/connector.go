@@ -42,6 +42,7 @@ func New(conn *net.UDPConn, addr *net.UDPAddr) *Connector {
 	handlerManager := handlermanager.New()
 	socketmanager.SetDataBackupManager(dataBackupManager)
 	dataSendManager.Init(conn, dataBackupManager, socketmanager)
+	dataBackupManager.SetSender(dataSendManager)
 
 	sk := socket.New()
 	sk.SetSender(dataSendManager)

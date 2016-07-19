@@ -3,6 +3,9 @@ package databackupmanager
 import (
 	"errors"
 	"github.com/RexGene/common/memorypool"
+	"github.com/RexGene/common/timermanager"
+	"github.com/RexGene/common/timingwheel"
+	"github.com/RexGene/icecream/icinterface"
 	"log"
 	"sync"
 )
@@ -27,8 +30,9 @@ type ControlData struct {
 }
 
 type DataBackupNode struct {
-	Data []byte
-	Size uint
+	Data  []byte
+	Size  uint
+	Timer *timingwheel.BaseNode
 }
 
 type DataNode struct {
@@ -40,6 +44,7 @@ type DataBackupManager struct {
 	data             map[uint32]*DataNode
 	controlEventList chan ControlData
 	exitEvent        chan bool
+	sender           icinterface.ISender
 }
 
 func New() *DataBackupManager {
@@ -48,6 +53,10 @@ func New() *DataBackupManager {
 		controlEventList: make(chan ControlData, CONTROL_EVENT_LIST),
 		exitEvent:        make(chan bool, 1),
 	}
+}
+
+func (self *DataBackupManager) SetSender(sender icinterface.ISender) {
+	self.sender = sender
 }
 
 func GetInstance() *DataBackupManager {
@@ -83,6 +92,11 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 		Size: size,
 	}
 
+	onTimeout := func() {
+		self.sender.Resend(uint(token), databackNode)
+	}
+	databackNode.Timer = self.sender.AddTimer(onTimeout)
+
 	node.Nodes[seq] = databackNode
 }
 
@@ -94,6 +108,7 @@ func (self *DataBackupManager) clear() {
 		list := node.Nodes
 
 		for _, v := range list {
+			timermanager.RemoveTimer(v.Timer)
 			self.FreeBuffer(v.Data)
 		}
 
@@ -113,6 +128,7 @@ func (self *DataBackupManager) remove(token uint32) error {
 	list := node.Nodes
 
 	for _, v := range list {
+		timermanager.RemoveTimer(v.Timer)
 		self.FreeBuffer(v.Data)
 	}
 
@@ -141,6 +157,7 @@ func (self *DataBackupManager) findAndRemove(token uint32, seq uint16) bool {
 	nodes := node.Nodes
 	dataNode := nodes[seq]
 	if dataNode != nil {
+		timermanager.RemoveTimer(dataNode.Timer)
 		self.FreeBuffer(dataNode.Data)
 		delete(nodes, seq)
 	}

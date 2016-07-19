@@ -131,6 +131,7 @@ func (self *IceCream) Start(addr string) error {
 	socketmanager.SetDataBackupManager(dataBacupManager)
 
 	dataSendManager.Init(conn, dataBacupManager, socketmanager)
+	databackupmanager.GetInstance().SetSender(datasendmanager.GetInstance())
 
 	self.dataSendManager = dataSendManager
 	self.dataBacupManager = dataBacupManager

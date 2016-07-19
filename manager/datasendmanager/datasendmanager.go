@@ -1,6 +1,8 @@
 package datasendmanager
 
 import (
+	"github.com/RexGene/common/timermanager"
+	"github.com/RexGene/common/timingwheel"
 	"github.com/RexGene/icecream/icinterface"
 	"github.com/RexGene/icecream/manager/databackupmanager"
 	"log"
@@ -28,6 +30,7 @@ type DataSendManager struct {
 	conn              *net.UDPConn
 	dataBackupManager *databackupmanager.DataBackupManager
 	tokenManager      icinterface.ITokenManager
+	timerManager      *timermanager.TimerManager
 }
 
 var instance *DataSendManager
@@ -56,13 +59,17 @@ func New() *DataSendManager {
 		cmdList:           make(chan CmdData, CMD_BUFFER_SIZE),
 		exitEvent:         make(chan bool, 1),
 		dataBackupManager: nil,
+		timerManager:      timermanager.New(),
 	}
 }
 
-func (self *DataSendManager) ExecuteForSocket(socket icinterface.ISocket) {
-	dataBackupManager := self.dataBackupManager
-	conn := self.conn
+func (self *DataSendManager) AddTimer(cb func()) *timingwheel.BaseNode {
+	return self.timerManager.AddTimer(2, cb)
+}
 
+func (self *DataSendManager) ExecuteForSocket(socket icinterface.ISocket) {
+	conn := self.conn
+	tickTime := time.Millisecond * 100
 	for {
 		select {
 		case cmd := <-self.cmdList:
@@ -74,8 +81,9 @@ func (self *DataSendManager) ExecuteForSocket(socket icinterface.ISocket) {
 		case <-self.exitEvent:
 			return
 
-		case <-time.After(time.Second):
-			node := dataBackupManager.GetDataList(socket.GetToken())
+		case <-time.After(tickTime):
+			self.timerManager.Tick()
+			/*node := dataBackupManager.GetDataList(socket.GetToken())
 			if node != nil {
 				node.RLock()
 
@@ -87,7 +95,7 @@ func (self *DataSendManager) ExecuteForSocket(socket icinterface.ISocket) {
 					}
 				}
 				node.RUnlock()
-			}
+			}*/
 
 		}
 	}
@@ -97,11 +105,19 @@ func (self *DataSendManager) Stop() {
 	self.exitEvent <- true
 }
 
-func (self *DataSendManager) Execute() {
-	dataBackupManager := self.dataBackupManager
-	tokenManager := self.tokenManager
+func (self *DataSendManager) Resend(token uint, itf interface{}) {
 	conn := self.conn
+	tokenManager := self.tokenManager
+	socket := tokenManager.GetSocket(uint32(token))
+	if socket != nil {
+		backupData := itf.(*databackupmanager.DataBackupNode)
+		conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
+	}
+}
 
+func (self *DataSendManager) Execute() {
+	conn := self.conn
+	tickTime := time.Millisecond * 100
 	for {
 		select {
 		case cmd := <-self.cmdList:
@@ -114,8 +130,9 @@ func (self *DataSendManager) Execute() {
 			}
 		case <-self.exitEvent:
 			return
-		case <-time.After(time.Second):
-			dataMap := dataBackupManager.GetData()
+		case <-time.After(tickTime):
+			self.timerManager.Tick()
+			/*dataMap := dataBackupManager.GetData()
 			for token, node := range dataMap {
 				if node != nil {
 					node.RLock()
@@ -123,14 +140,16 @@ func (self *DataSendManager) Execute() {
 					dataList := node.Nodes
 
 					for _, backupData := range dataList {
-						socket := tokenManager.GetSocket(token)
-						if socket != nil {
-							conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
+						if databackupmanager.IsOverAndReset(backupData, msAmount) {
+							socket := tokenManager.GetSocket(token)
+							if socket != nil {
+								conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
+							}
 						}
 					}
 					node.RUnlock()
 				}
-			}
+			}*/
 		}
 	}
 }

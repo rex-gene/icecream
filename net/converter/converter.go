@@ -224,6 +224,7 @@ func HandlePacket(
 
 		var handleBackupList = func(data []byte) {
 			PushMessage(buffer, cli, handlerManager)
+			FreeBuffer(buffer)
 			cli.IncDstSeq()
 		}
 
@@ -244,18 +245,6 @@ func HandlePacket(
 		return true
 	}
 
-	cmdId := head.CmdId
-	log.Println("[?]cmd:", cmdId)
-	if cmdId != 0 {
-		msg := protocolmanager.GetInstance().GetProtocol(cmdId)
-		if msg != nil {
-			proto.Unmarshal(buffer[ICHEAD_SIZE:], msg)
-			handlerManager.PushMessage(cmdId, cli, msg)
-		} else {
-			log.Println("[!]protocol not found")
-		}
-
-	}
-
+	PushMessage(buffer, cli, handlerManager)
 	return true
 }
