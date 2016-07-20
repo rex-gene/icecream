@@ -4,6 +4,7 @@ import (
 	"github.com/RexGene/icecream/manager/datasendmanager"
 	"github.com/RexGene/icecream/protocol"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -13,6 +14,7 @@ type recvBackupData struct {
 }
 
 type Socket struct {
+	sync.RWMutex
 	SrcSeq uint16
 	DstSeq uint16
 
@@ -26,10 +28,15 @@ type Socket struct {
 }
 
 func New() *Socket {
-	return &Socket{}
+	return &Socket{
+		recvMap: make(map[uint16][]byte),
+	}
 }
 
 func (self *Socket) EachBackupPacket(seqId uint16, handlePacket func([]byte)) uint16 {
+	self.RLock()
+	defer self.RUnlock()
+
 	data := self.recvMap[seqId]
 	for data != nil {
 		if handlePacket != nil {
@@ -44,6 +51,9 @@ func (self *Socket) EachBackupPacket(seqId uint16, handlePacket func([]byte)) ui
 }
 
 func (self *Socket) InsertBackupList(seqId uint16, data []byte) {
+	self.Lock()
+	defer self.Unlock()
+
 	self.recvMap[seqId] = data
 	return
 }

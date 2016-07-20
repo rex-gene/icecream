@@ -52,6 +52,28 @@ func SendData(cli icinterface.ISocket, buffer []byte, size uint, flag byte, cmdI
 	cli.SendData(buffer, size, isNeedBackup)
 }
 
+func SendDataByDstSeqId(cli icinterface.ISocket, buffer []byte, size uint, flag byte, cmdId int, dstSeqId uint16) {
+	head := (*protocol.ICHead)(unsafe.Pointer(&buffer[0]))
+	head.Flag = flag
+	head.SrcSeqId = cli.GetSrcSeq()
+	head.DstSeqId = dstSeqId
+	head.Token = 0
+	head.CmdId = uint32(cmdId)
+	head.Sum = 0
+	head.Len = uint16(size)
+	head.Sum = GetSum(buffer[:size])
+	head.Token = cli.GetToken()
+
+	log.Println("[?]send data:", size)
+
+	isNeedBackup := true
+	if flag == protocol.ACK_FLAG || flag == protocol.RESET_FLAG || flag == protocol.STOP_FLAG {
+		isNeedBackup = false
+	}
+
+	cli.SendData(buffer, size, isNeedBackup)
+}
+
 func SendMessage(
 	socket icinterface.ISocket, id int, msg proto.Message) {
 	buffer := MakeBuffer(SEND_BUFFER_SIZE)
@@ -234,13 +256,13 @@ func HandlePacket(
 		cli.InsertBackupList(head.SrcSeqId, buffer)
 
 		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buff, uint(len(buff)), protocol.ACK_FLAG, 0)
+		SendDataByDstSeqId(cli, buff, uint(len(buff)), protocol.ACK_FLAG, 0, head.SrcSeqId)
 		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 		return false
 	} else {
 
 		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
-		SendData(cli, buff, uint(len(buff)), protocol.ACK_FLAG, 0)
+		SendDataByDstSeqId(cli, buff, uint(len(buff)), protocol.ACK_FLAG, 0, head.SrcSeqId)
 		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 		return true
 	}
