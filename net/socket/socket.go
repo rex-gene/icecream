@@ -32,7 +32,7 @@ func New() *Socket {
 func (self *Socket) EachBackupPacket(seqId uint16, handlePacket func([]byte)) uint16 {
 	data := self.recvMap[seqId]
 	for data != nil {
-		if data != nil {
+		if handlePacket != nil {
 			handlePacket(data)
 			seqId++
 		}
