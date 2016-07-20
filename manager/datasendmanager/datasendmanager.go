@@ -64,7 +64,7 @@ func New() *DataSendManager {
 }
 
 func (self *DataSendManager) AddTimer(cb func()) *timingwheel.BaseNode {
-	return self.timerManager.AddTimer(2, cb)
+	return self.timerManager.AddTimerForever(2, cb)
 }
 
 func (self *DataSendManager) ExecuteForSocket(socket icinterface.ISocket) {
