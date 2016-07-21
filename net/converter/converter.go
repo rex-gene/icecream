@@ -238,6 +238,7 @@ func HandlePacket(
 
 	log.Println("[?]on push")
 
+	cli.Lock()
 	dstSeq := cli.GetDstSeq()
 	if head.SrcSeqId == dstSeq {
 		buff := dataBackupManager.MakeBuffer(ICHEAD_SIZE)
@@ -266,6 +267,7 @@ func HandlePacket(
 		log.Println("[?]send ack:", head.SrcSeqId, dstSeq)
 		return true
 	}
+	cli.Unlock()
 
 	PushMessage(buffer, cli, handlerManager)
 	return true

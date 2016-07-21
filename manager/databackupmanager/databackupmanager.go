@@ -41,6 +41,7 @@ type DataNode struct {
 }
 
 type DataBackupManager struct {
+	bufferLock       sync.Mutex
 	data             map[uint32]*DataNode
 	controlEventList chan ControlData
 	exitEvent        chan bool
@@ -68,11 +69,17 @@ func GetInstance() *DataBackupManager {
 }
 
 func (self *DataBackupManager) MakeBuffer(size uint) []byte {
+	self.bufferLock.Lock()
+	defer self.bufferLock.Unlock()
+
 	buf, _ := memorypool.GetInstance().Alloc(size)
 	return buf
 }
 
 func (self *DataBackupManager) FreeBuffer(buffer []byte) {
+	self.bufferLock.Lock()
+	defer self.bufferLock.Unlock()
+
 	memorypool.GetInstance().Free(buffer)
 }
 

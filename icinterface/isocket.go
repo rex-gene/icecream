@@ -11,6 +11,8 @@ const (
 )
 
 type ISocket interface {
+	Lock()
+	Unlock()
 	GetSrcSeq() uint16
 	GetDstSeq() uint16
 	GetToken() uint32

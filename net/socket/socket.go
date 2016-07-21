@@ -15,6 +15,7 @@ type recvBackupData struct {
 
 type Socket struct {
 	sync.RWMutex
+
 	SrcSeq uint16
 	DstSeq uint16
 
@@ -34,16 +35,14 @@ func New() *Socket {
 }
 
 func (self *Socket) EachBackupPacket(seqId uint16, handlePacket func([]byte)) uint16 {
-	self.RLock()
-	defer self.RUnlock()
-
 	data := self.recvMap[seqId]
 	for data != nil {
+		delete(self.recvMap, seqId)
 		if handlePacket != nil {
 			handlePacket(data)
-			seqId++
 		}
 
+		seqId++
 		data = self.recvMap[seqId]
 	}
 
@@ -51,9 +50,6 @@ func (self *Socket) EachBackupPacket(seqId uint16, handlePacket func([]byte)) ui
 }
 
 func (self *Socket) InsertBackupList(seqId uint16, data []byte) {
-	self.Lock()
-	defer self.Unlock()
-
 	self.recvMap[seqId] = data
 	return
 }
