@@ -107,6 +107,7 @@ func (self *Socket) SetToken(token uint32) {
 }
 
 func (self *Socket) IncDstSeq() {
+	self.lastControlTime = time.Now().Unix()
 	self.DstSeq++
 }
 
@@ -115,7 +116,6 @@ func (self *Socket) AddDstSeq(value uint16) {
 }
 
 func (self *Socket) IncSrcSeq() {
-	self.lastControlTime = time.Now().Unix()
 	self.SrcSeq++
 }
 
@@ -124,5 +124,6 @@ func (self *Socket) SetSrcSeq(seq uint16) {
 }
 
 func (self *Socket) SetDstSeq(seq uint16) {
+	self.lastControlTime = time.Now().Unix()
 	self.DstSeq = seq
 }

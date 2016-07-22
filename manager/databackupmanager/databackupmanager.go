@@ -6,7 +6,6 @@ import (
 	"github.com/RexGene/common/timermanager"
 	"github.com/RexGene/common/timingwheel"
 	"github.com/RexGene/icecream/icinterface"
-	"github.com/RexGene/icecream/manager/socketmanager"
 	"log"
 	"sync"
 )
@@ -104,7 +103,7 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 		defer databackNode.Unlock()
 
 		if !self.sender.Resend(uint(token), databackNode) {
-			SendCmd(token, 0, nil, 0, REMOVE)
+			self.SendCmd(token, 0, nil, 0, REMOVE)
 		}
 	}
 

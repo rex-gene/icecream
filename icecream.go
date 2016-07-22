@@ -111,7 +111,7 @@ func (self *IceCream) Start(addr string) error {
 		return err
 	}
 
-	conn, err := net.ListenUDP("udp", udpAddr)
+	conn, err := net.ListenUDP("udp4", udpAddr)
 	if err != nil {
 		return err
 	}
