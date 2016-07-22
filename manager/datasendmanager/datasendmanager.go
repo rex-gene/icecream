@@ -91,16 +91,23 @@ func (self *DataSendManager) Stop() {
 	self.exitEvent <- true
 }
 
-func (self *DataSendManager) Resend(token uint, itf interface{}) {
+func (self *DataSendManager) Resend(token uint, itf interface{}) bool {
 	conn := self.conn
 	tokenManager := self.tokenManager
 	socket := tokenManager.GetSocket(uint32(token))
 	if socket != nil {
 		backupData := itf.(*databackupmanager.DataBackupNode)
-		if backupData.Data != nil {
-			log.Println("[?] resend data:", backupData.Data[:backupData.Size], " size:", backupData.Size)
-			conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
+		if backupData.Count == 0 || backupData.Data == nil {
+			return false
 		}
+
+		log.Println("[?] resend data:", backupData.Data[:backupData.Size], " size:", backupData.Size)
+		backupData.Count--
+		conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
+
+		return true
+	} else {
+		return false
 	}
 }
 

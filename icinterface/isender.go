@@ -6,5 +6,5 @@ import (
 
 type ISender interface {
 	AddTimer(cb func()) *timingwheel.BaseNode
-	Resend(token uint, backupData interface{})
+	Resend(token uint, backupData interface{}) bool
 }

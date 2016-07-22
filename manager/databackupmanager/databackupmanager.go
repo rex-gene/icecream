@@ -6,6 +6,7 @@ import (
 	"github.com/RexGene/common/timermanager"
 	"github.com/RexGene/common/timingwheel"
 	"github.com/RexGene/icecream/icinterface"
+	"github.com/RexGene/icecream/manager/socketmanager"
 	"log"
 	"sync"
 )
@@ -34,6 +35,7 @@ type DataBackupNode struct {
 	Data  []byte
 	Size  uint
 	Timer *timingwheel.BaseNode
+	Count uint
 }
 
 type DataNode struct {
@@ -90,8 +92,9 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 	defer node.Unlock()
 
 	databackNode := &DataBackupNode{
-		Data: inputData,
-		Size: size,
+		Data:  inputData,
+		Size:  size,
+		Count: 10,
 	}
 
 	log.Println("[?] databacknode:", databackNode.Data[:databackNode.Size], databackNode.Size)
@@ -100,7 +103,9 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 		databackNode.Lock()
 		defer databackNode.Unlock()
 
-		self.sender.Resend(uint(token), databackNode)
+		if !self.sender.Resend(uint(token), databackNode) {
+			socketmananger.GetInstance().RemoveSocket(token)
+		}
 	}
 
 	databackNode.Timer = self.sender.AddTimer(onTimeout)
