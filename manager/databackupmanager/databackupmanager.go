@@ -104,7 +104,7 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 		defer databackNode.Unlock()
 
 		if !self.sender.Resend(uint(token), databackNode) {
-			socketmananger.GetInstance().RemoveSocket(token)
+			SendCmd(token, 0, nil, 0, REMOVE)
 		}
 	}
 
