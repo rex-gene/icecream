@@ -30,6 +30,7 @@ type ControlData struct {
 }
 
 type DataBackupNode struct {
+	sync.Mutex
 	Data  []byte
 	Size  uint
 	Timer *timingwheel.BaseNode
@@ -69,17 +70,11 @@ func GetInstance() *DataBackupManager {
 }
 
 func (self *DataBackupManager) MakeBuffer(size uint) []byte {
-	self.bufferLock.Lock()
-	defer self.bufferLock.Unlock()
-
 	buf, _ := memorypool.GetInstance().Alloc(size)
 	return buf
 }
 
 func (self *DataBackupManager) FreeBuffer(buffer []byte) {
-	self.bufferLock.Lock()
-	defer self.bufferLock.Unlock()
-
 	memorypool.GetInstance().Free(buffer)
 }
 
@@ -99,9 +94,15 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 		Size: size,
 	}
 
+	log.Println("[?] databacknode:", databackNode.Data[:databackNode.Size], databackNode.Size)
+
 	onTimeout := func() {
+		databackNode.Lock()
+		defer databackNode.Unlock()
+
 		self.sender.Resend(uint(token), databackNode)
 	}
+
 	databackNode.Timer = self.sender.AddTimer(onTimeout)
 
 	node.Nodes[seq] = databackNode
@@ -115,8 +116,11 @@ func (self *DataBackupManager) clear() {
 		list := node.Nodes
 
 		for _, v := range list {
+			v.Lock()
 			timermanager.RemoveTimer(v.Timer)
 			self.FreeBuffer(v.Data)
+			v.Data = nil
+			v.Unlock()
 		}
 
 		delete(self.data, k)
@@ -135,8 +139,11 @@ func (self *DataBackupManager) remove(token uint32) error {
 	list := node.Nodes
 
 	for _, v := range list {
+		v.Lock()
 		timermanager.RemoveTimer(v.Timer)
 		self.FreeBuffer(v.Data)
+		v.Data = nil
+		v.Unlock()
 	}
 
 	delete(self.data, token)
@@ -164,8 +171,12 @@ func (self *DataBackupManager) findAndRemove(token uint32, seq uint16) bool {
 	nodes := node.Nodes
 	dataNode := nodes[seq]
 	if dataNode != nil {
+		dataNode.Lock()
+		defer dataNode.Unlock()
+
 		timermanager.RemoveTimer(dataNode.Timer)
 		self.FreeBuffer(dataNode.Data)
+		dataNode.Data = nil
 		delete(nodes, seq)
 	}
 
@@ -194,7 +205,7 @@ func (self *DataBackupManager) Execute() {
 		case data := <-self.controlEventList:
 			switch data.Option {
 			case INSERT:
-				log.Println("[?]DataBackup insert token:", data.Token, " seq:", data.Seq)
+				log.Println("[?]DataBackup insert token:", data.Token, " seq:", data.Seq, " size:", data.Size)
 				self.insert(data.Token, data.Seq, data.Data, data.Size)
 			case REMOVE:
 				log.Println("[?]DataBackup remove", " token:", data.Token)

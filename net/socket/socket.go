@@ -9,8 +9,8 @@ import (
 )
 
 type recvBackupData struct {
-	seqId uint16
-	data  []byte
+	data []byte
+	size uint
 }
 
 type Socket struct {
@@ -25,21 +25,21 @@ type Socket struct {
 	state           int
 	lastControlTime int64
 	sender          *datasendmanager.DataSendManager
-	recvMap         map[uint16][]byte
+	recvMap         map[uint16]*recvBackupData
 }
 
 func New() *Socket {
 	return &Socket{
-		recvMap: make(map[uint16][]byte),
+		recvMap: make(map[uint16]*recvBackupData),
 	}
 }
 
-func (self *Socket) EachBackupPacket(seqId uint16, handlePacket func([]byte)) uint16 {
+func (self *Socket) EachBackupPacket(seqId uint16, handlePacket func([]byte, uint)) uint16 {
 	data := self.recvMap[seqId]
 	for data != nil {
 		delete(self.recvMap, seqId)
 		if handlePacket != nil {
-			handlePacket(data)
+			handlePacket(data.data, data.size)
 		}
 
 		seqId++
@@ -49,8 +49,13 @@ func (self *Socket) EachBackupPacket(seqId uint16, handlePacket func([]byte)) ui
 	return seqId
 }
 
-func (self *Socket) InsertBackupList(seqId uint16, data []byte) {
-	self.recvMap[seqId] = data
+func (self *Socket) InsertBackupList(seqId uint16, data []byte, size uint) {
+	backupData := &recvBackupData{
+		data: data,
+		size: size,
+	}
+
+	self.recvMap[seqId] = backupData
 	return
 }
 

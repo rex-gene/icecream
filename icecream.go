@@ -76,29 +76,25 @@ func (self *IceCream) Connect(serverName string, addr string) (*connector.Connec
 
 func (self *IceCream) listen() {
 	for self.isRunning {
-		log.Println("[?]before MakeBuffer")
 		buffer := converter.MakeBuffer(READ_BUFFER_SIZE)
-		log.Println("[?]after MakeBuffer")
 		readLen, targetAddr, err := self.conn.ReadFromUDP(buffer)
-		log.Println("[?]after read:", readLen)
+		log.Println("[?] after read:", readLen)
 		if err == nil {
 			if readLen >= ICHEAD_SIZE {
 				task := func() {
-					log.Println("[?]HandleTask")
 					if converter.HandlePacket(
 						datasendmanager.GetInstance(),
 						socketmanager.GetInstance(),
 						databackupmanager.GetInstance(),
 						handlermanager.GetInstance(),
-						targetAddr, buffer[:readLen], nil) {
+						targetAddr, buffer, uint(readLen), nil) {
 						converter.FreeBuffer(buffer)
 					}
 				}
 
-				log.Println("[?]beginTask")
 				threadpool.GetInstance().Start(task)
 			} else {
-				log.Println("[!]data len too short:", readLen)
+				log.Println("[!] data len too short:", readLen)
 			}
 		} else {
 			log.Println("[!]", err)

@@ -83,20 +83,6 @@ func (self *DataSendManager) ExecuteForSocket(socket icinterface.ISocket) {
 
 		case <-time.After(tickTime):
 			self.timerManager.Tick()
-			/*node := dataBackupManager.GetDataList(socket.GetToken())
-			if node != nil {
-				node.RLock()
-
-				dataList := node.Nodes
-				for _, backupData := range dataList {
-					_, err := conn.Write(backupData.Data[:backupData.Size])
-					if err != nil {
-						log.Println("[!]", err)
-					}
-				}
-				node.RUnlock()
-			}*/
-
 		}
 	}
 }
@@ -111,7 +97,10 @@ func (self *DataSendManager) Resend(token uint, itf interface{}) {
 	socket := tokenManager.GetSocket(uint32(token))
 	if socket != nil {
 		backupData := itf.(*databackupmanager.DataBackupNode)
-		conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
+		if backupData.Data != nil {
+			log.Println("[?] resend data:", backupData.Data[:backupData.Size], " size:", backupData.Size)
+			conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
+		}
 	}
 }
 
@@ -132,24 +121,6 @@ func (self *DataSendManager) Execute() {
 			return
 		case <-time.After(tickTime):
 			self.timerManager.Tick()
-			/*dataMap := dataBackupManager.GetData()
-			for token, node := range dataMap {
-				if node != nil {
-					node.RLock()
-
-					dataList := node.Nodes
-
-					for _, backupData := range dataList {
-						if databackupmanager.IsOverAndReset(backupData, msAmount) {
-							socket := tokenManager.GetSocket(token)
-							if socket != nil {
-								conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
-							}
-						}
-					}
-					node.RUnlock()
-				}
-			}*/
 		}
 	}
 }

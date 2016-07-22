@@ -69,7 +69,7 @@ func (self *Connector) listen() {
 						self.socketmanager,
 						self.dataBackupManager,
 						self.handlerManager,
-						targetAddr, buffer[:readLen], self.socket) {
+						targetAddr, buffer, uint(readLen), self.socket) {
 						converter.FreeBuffer(buffer)
 					}
 				}

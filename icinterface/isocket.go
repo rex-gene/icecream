@@ -33,6 +33,6 @@ type ISocket interface {
 
 	SetSrcSeq(uint16)
 	SetDstSeq(uint16)
-	InsertBackupList(uint16, []byte)
-	EachBackupPacket(uint16, func([]byte)) uint16
+	InsertBackupList(uint16, []byte, uint)
+	EachBackupPacket(uint16, func([]byte, uint)) uint16
 }

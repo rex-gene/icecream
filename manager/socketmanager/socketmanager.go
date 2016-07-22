@@ -67,7 +67,6 @@ func (self *SocketManager) RemoveSocket(token uint32) {
 	defer self.Unlock()
 
 	delete(self.dataMap, token)
-	log.Println("remove socket:", token, self.dataMap[token])
 	if self.dataBackupManager != nil {
 		self.dataBackupManager.SendCmd(token, 0, nil, 0, databackupmanager.REMOVE)
 	}
