@@ -93,10 +93,8 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 	databackNode := &DataBackupNode{
 		Data:  inputData,
 		Size:  size,
-		Count: 10,
+		Count: 50,
 	}
-
-	log.Println("[?] databacknode:", databackNode.Data[:databackNode.Size], databackNode.Size)
 
 	onTimeout := func() {
 		databackNode.Lock()

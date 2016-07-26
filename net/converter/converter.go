@@ -170,15 +170,11 @@ func HandlePacket(
 		return true
 	}
 
-	log.Println("[?]flag:", head.Flag)
-
 	if head.Flag&protocol.ACK_FLAG != 0 {
 		if head.Flag&protocol.START_FLAG == 0 {
-			log.Println("[?]on ack")
 			token := head.Token
 			dataBackupManager.SendCmd(token, head.DstSeqId, nil, 0, databackupmanager.FIND_AND_REMOVE)
 		} else {
-			log.Println("[?]on start ack")
 			dataBackupManager.SendCmd(0, head.DstSeqId, nil, 0, databackupmanager.FIND_AND_REMOVE)
 
 			if sock != nil {
@@ -194,7 +190,6 @@ func HandlePacket(
 	}
 
 	if head.Flag&protocol.START_FLAG != 0 {
-		log.Println("[?]on start")
 		cli := socket.New()
 		cli.Format(head, addr, sender)
 		tokenManager.AddSocket(cli)

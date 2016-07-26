@@ -101,7 +101,6 @@ func (self *DataSendManager) Resend(token uint, itf interface{}) bool {
 			return false
 		}
 
-		log.Println("[?] resend data:", backupData.Data[:backupData.Size], " size:", backupData.Size)
 		backupData.Count--
 		conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
 
