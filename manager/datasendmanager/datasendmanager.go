@@ -102,7 +102,10 @@ func (self *DataSendManager) Resend(token uint, itf interface{}) bool {
 		}
 
 		backupData.Count--
-		conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
+		_, err := conn.WriteToUDP(backupData.Data[:backupData.Size], socket.GetAddr())
+		if err != nil {
+			log.Println("[-] send data error:", err.Error, "token:", socket.GetToken())
+		}
 
 		return true
 	} else {
@@ -118,9 +121,13 @@ func (self *DataSendManager) Execute() {
 		case cmd := <-self.cmdList:
 			socket := cmd.Socket
 			if socket != nil {
-				conn.WriteToUDP(cmd.Data[:cmd.Size], socket.GetAddr())
+				_, err := conn.WriteToUDP(cmd.Data[:cmd.Size], socket.GetAddr())
 				if cmd.Option == SEND_DATA_AND_FREE {
 					self.dataBackupManager.FreeBuffer(cmd.Data)
+				}
+
+				if err != nil {
+					log.Println("[-] send data error:", err.Error, "token:", socket.GetToken())
 				}
 			}
 		case <-self.exitEvent:

@@ -93,7 +93,7 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 	databackNode := &DataBackupNode{
 		Data:  inputData,
 		Size:  size,
-		Count: 50,
+		Count: 300,
 	}
 
 	onTimeout := func() {
@@ -101,6 +101,7 @@ func (self *DataBackupManager) insert(token uint32, seq uint16, inputData []byte
 		defer databackNode.Unlock()
 
 		if !self.sender.Resend(uint(token), databackNode) {
+			log.Println("[!] Resend timeout token:", token)
 			self.SendCmd(token, 0, nil, 0, REMOVE)
 		}
 	}
