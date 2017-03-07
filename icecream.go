@@ -94,7 +94,11 @@ func (self *IceCream) listen() {
 
 				threadpool.GetInstance().Start(task)
 			} else {
-				log.Println("[!] data len too short:", readLen)
+                if readLen != 1 {
+                    log.Println("[!] data len too short:", readLen)
+                } else {
+                    // keep live
+                }
 			}
 		} else {
 			log.Println("[!]", err)
